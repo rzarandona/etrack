@@ -22,9 +22,9 @@ export async function POST(req: NextRequest) {
   if (!user) return new Response('Unauthorized', { status: 401 });
 
   const { data: profile } = await supabase
-    .from('supervisor_profiles')
+    .from('user_profiles')
     .select('role, active')
-    .eq('id', user.id)
+    .eq('auth_user_id', user.id)
     .single();
   if (!profile || !profile.active || profile.role !== 'admin') {
     return new Response('Forbidden', { status: 403 });

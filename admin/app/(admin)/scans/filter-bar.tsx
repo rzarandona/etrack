@@ -3,13 +3,13 @@
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useState, useTransition } from 'react';
 
-export type SiteOption = { id: string; name: string };
+export type EventOption = { id: string; title: string };
 
 type Props = {
-  sites: SiteOption[];
+  events: EventOption[];
 };
 
-export function FilterBar({ sites }: Props) {
+export function FilterBar({ events }: Props) {
   const router = useRouter();
   const pathname = usePathname();
   const params = useSearchParams();
@@ -17,7 +17,7 @@ export function FilterBar({ sites }: Props) {
 
   const [q, setQ] = useState(params.get('q') ?? '');
   const [type, setType] = useState(params.get('type') ?? '');
-  const [siteId, setSiteId] = useState(params.get('site') ?? '');
+  const [eventId, setEventId] = useState(params.get('event') ?? '');
   const [from, setFrom] = useState(params.get('from') ?? '');
   const [to, setTo] = useState(params.get('to') ?? '');
   const [mock, setMock] = useState(params.get('mock') === '1');
@@ -27,7 +27,7 @@ export function FilterBar({ sites }: Props) {
     const next = new URLSearchParams();
     if (q.trim()) next.set('q', q.trim());
     if (type) next.set('type', type);
-    if (siteId) next.set('site', siteId);
+    if (eventId) next.set('event', eventId);
     if (from) next.set('from', from);
     if (to) next.set('to', to);
     if (mock) next.set('mock', '1');
@@ -40,7 +40,7 @@ export function FilterBar({ sites }: Props) {
   const clear = () => {
     setQ('');
     setType('');
-    setSiteId('');
+    setEventId('');
     setFrom('');
     setTo('');
     setMock(false);
@@ -72,13 +72,12 @@ export function FilterBar({ sites }: Props) {
         </select>
       </div>
       <div className="md:col-span-3">
-        <span className="label">Site</span>
-        <select value={siteId} onChange={(e) => setSiteId(e.target.value)} className="input">
+        <span className="label">Event</span>
+        <select value={eventId} onChange={(e) => setEventId(e.target.value)} className="input">
           <option value="">Any</option>
-          <option value="__none__">Off-site only</option>
-          {sites.map((s) => (
-            <option key={s.id} value={s.id}>
-              {s.name}
+          {events.map((ev) => (
+            <option key={ev.id} value={ev.id}>
+              {ev.title}
             </option>
           ))}
         </select>

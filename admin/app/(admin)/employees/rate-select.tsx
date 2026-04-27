@@ -2,6 +2,7 @@
 
 import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState, useTransition } from 'react';
+import { formatMoney } from '@/lib/format';
 import { createRate } from '../rates/actions';
 import type { Rate } from '@/lib/types';
 
@@ -93,7 +94,7 @@ export function RateSelect({ rates, initialValue }: Props) {
           <option value="">— Select a rate —</option>
           {activeRates.map((r) => (
             <option key={r.id} value={r.id}>
-              {r.label} · {r.hourly_rate}
+              {r.label} · {formatMoney(r.hourly_rate)}
             </option>
           ))}
           <option value={ADD_NEW}>+ Add new rate…</option>

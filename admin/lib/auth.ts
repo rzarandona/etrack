@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation';
 import { getSupabaseServer } from './supabase/server';
-import type { SupervisorProfile } from './types';
+import type { UserProfile } from './types';
 
 /**
  * Server-component helper. Redirects to /login if the caller is not signed in
@@ -8,7 +8,7 @@ import type { SupervisorProfile } from './types';
  */
 export async function requireAdmin(): Promise<{
   userId: string;
-  profile: SupervisorProfile;
+  profile: UserProfile;
 }> {
   const supabase = await getSupabaseServer();
   const {
@@ -18,14 +18,14 @@ export async function requireAdmin(): Promise<{
   if (!user) redirect('/login');
 
   const { data: profile } = await supabase
-    .from('supervisor_profiles')
+    .from('user_profiles')
     .select('*')
-    .eq('id', user.id)
+    .eq('auth_user_id', user.id)
     .single();
 
   if (!profile || !profile.active || profile.role !== 'admin') {
     redirect('/login?error=admin-only');
   }
 
-  return { userId: user.id, profile: profile as SupervisorProfile };
+  return { userId: user.id, profile: profile as UserProfile };
 }

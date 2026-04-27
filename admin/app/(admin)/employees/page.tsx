@@ -1,17 +1,34 @@
 import Link from 'next/link';
 import { Avatar } from '@/lib/components/avatar';
 import { StatusPill } from '@/lib/components/pills';
+import { formatMoney } from '@/lib/format';
 import { signPaths } from '@/lib/storage';
 import { getSupabaseServer } from '@/lib/supabase/server';
 import type { Employee } from '@/lib/types';
+import { FilterBar } from './filter-bar';
 
-export default async function EmployeesPage() {
+export default async function EmployeesPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ q?: string; status?: string }>;
+}) {
+  const params = await searchParams;
   const supabase = await getSupabaseServer();
-  const { data } = await supabase
+
+  let query = supabase
     .from('employees')
     .select('*')
     .order('active', { ascending: false })
     .order('employee_code');
+
+  if (params.q) {
+    const term = `%${params.q.trim()}%`;
+    query = query.or(`full_name.ilike.${term},employee_code.ilike.${term}`);
+  }
+  if (params.status === 'active') query = query.eq('active', true);
+  else if (params.status === 'inactive') query = query.eq('active', false);
+
+  const { data } = await query;
   const employees = (data as Employee[]) ?? [];
 
   const photoUrlByPath = await signPaths(
@@ -40,10 +57,14 @@ export default async function EmployeesPage() {
         </Link>
       </div>
 
+      <FilterBar />
+
       <div className="card p-5">
         {employees.length === 0 ? (
           <p className="py-10 text-center text-muted">
-            No employees yet. Add one to start issuing badges.
+            {params.q || params.status
+              ? 'No employees match the current filters.'
+              : 'No employees yet. Add one to start issuing badges.'}
           </p>
         ) : (
           <div className="overflow-x-auto scroll-hide">
@@ -82,7 +103,7 @@ export default async function EmployeesPage() {
                       </td>
                       <td className="py-3 text-right tabular-nums pr-6">
                         <Link href={`/employees/${e.id}`} className="block">
-                          {e.hourly_rate ?? <span className="text-muted">—</span>}
+                          {e.hourly_rate ? formatMoney(e.hourly_rate) : <span className="text-muted">—</span>}
                         </Link>
                       </td>
                       <td className="py-3 pl-2">

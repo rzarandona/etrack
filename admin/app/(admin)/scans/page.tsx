@@ -3,7 +3,7 @@ import { MockFlagPill, ScanTypePill } from '@/lib/components/pills';
 import { formatScanWhen } from '@/lib/format';
 import { signPaths } from '@/lib/storage';
 import { getSupabaseServer } from '@/lib/supabase/server';
-import { FilterBar, type SiteOption } from './filter-bar';
+import { FilterBar } from './filter-bar';
 import { PhotoThumb } from './photo-viewer';
 
 type Row = {
@@ -11,14 +11,14 @@ type Row = {
   scan_type: 'in' | 'out';
   server_timestamp: string;
   is_mock_location: boolean;
+  self_clocked: boolean;
   verification_photo_url: string | null;
   latitude: string;
   longitude: string;
   employee: { full_name: string; employee_code: string } | null;
-  site: { name: string } | null;
+  event: { id: string; title: string } | null;
+  phase: { id: string; name: string } | null;
 };
-
-const SITE_NONE = '__none__';
 
 export default async function ScansPage({
   searchParams,
@@ -27,7 +27,7 @@ export default async function ScansPage({
     mock?: string;
     q?: string;
     type?: string;
-    site?: string;
+    event?: string;
     from?: string;
     to?: string;
   }>;
@@ -35,14 +35,12 @@ export default async function ScansPage({
   const params = await searchParams;
   const supabase = await getSupabaseServer();
 
-  const { data: sitesData } = await supabase
-    .from('sites')
-    .select('id, name')
-    .order('name');
-  const sites = (sitesData as SiteOption[]) ?? [];
+  const { data: eventsData } = await supabase
+    .from('events')
+    .select('id, title')
+    .order('starts_at', { ascending: false });
+  const events = eventsData ?? [];
 
-  // Free-text search resolves matching employee IDs first, since the join is
-  // one-way (scans -> employees) and ilike doesn't traverse joins cheaply.
   let employeeIdFilter: string[] | null = null;
   if (params.q) {
     const term = `%${params.q.trim()}%`;
@@ -53,7 +51,7 @@ export default async function ScansPage({
     employeeIdFilter = (matches ?? []).map((m) => m.id as string);
     if (employeeIdFilter.length === 0) {
       return (
-        <ScansShell sites={sites} count={0}>
+        <ScansShell events={events} count={0}>
           <p className="py-10 text-center text-muted">No scans match the current filters.</p>
         </ScansShell>
       );
@@ -63,15 +61,14 @@ export default async function ScansPage({
   let query = supabase
     .from('scans')
     .select(
-      'id, scan_type, server_timestamp, is_mock_location, verification_photo_url, latitude, longitude, employee:employees(full_name, employee_code), site:sites(name)'
+      'id, scan_type, server_timestamp, is_mock_location, self_clocked, verification_photo_url, latitude, longitude, employee:employees(full_name, employee_code), event:events(id, title), phase:event_phases(id, name)'
     )
     .order('server_timestamp', { ascending: false })
     .limit(200);
 
   if (params.mock === '1') query = query.eq('is_mock_location', true);
   if (params.type === 'in' || params.type === 'out') query = query.eq('scan_type', params.type);
-  if (params.site === SITE_NONE) query = query.is('site_id', null);
-  else if (params.site) query = query.eq('site_id', params.site);
+  if (params.event) query = query.eq('event_id', params.event);
   if (params.from) query = query.gte('server_timestamp', `${params.from}T00:00:00.000Z`);
   if (params.to) query = query.lte('server_timestamp', `${params.to}T23:59:59.999Z`);
   if (employeeIdFilter) query = query.in('employee_id', employeeIdFilter);
@@ -86,7 +83,7 @@ export default async function ScansPage({
   );
 
   return (
-    <ScansShell sites={sites} count={rows.length}>
+    <ScansShell events={events} count={rows.length}>
       {rows.length === 0 ? (
         <p className="py-10 text-center text-muted">No scans match the current filters.</p>
       ) : (
@@ -97,7 +94,7 @@ export default async function ScansPage({
                 <th className="font-medium pb-3">When</th>
                 <th className="font-medium pb-3">Employee</th>
                 <th className="font-medium pb-3">Type</th>
-                <th className="font-medium pb-3">Site</th>
+                <th className="font-medium pb-3">Event / Phase</th>
                 <th className="font-medium pb-3">Location</th>
                 <th className="font-medium pb-3">Flags</th>
                 <th className="font-medium pb-3 text-right">Photo</th>
@@ -106,9 +103,7 @@ export default async function ScansPage({
             <tbody>
               {rows.map((r) => (
                 <tr key={r.id} className="table-row border-t border-line">
-                  <td className="py-3 text-muted">
-                    {formatScanWhen(r.server_timestamp)}
-                  </td>
+                  <td className="py-3 text-muted">{formatScanWhen(r.server_timestamp)}</td>
                   <td className="py-3">
                     <div className="flex items-center gap-3">
                       <Avatar name={r.employee?.full_name ?? '?'} size="sm" />
@@ -119,10 +114,22 @@ export default async function ScansPage({
                     </div>
                   </td>
                   <td className="py-3">
-                    <ScanTypePill type={r.scan_type} />
+                    <div className="flex items-center gap-2">
+                      <ScanTypePill type={r.scan_type} />
+                      {r.self_clocked && (
+                        <span className="text-xs text-muted">selfie</span>
+                      )}
+                    </div>
                   </td>
                   <td className="py-3 text-muted">
-                    {r.site?.name ?? <span className="opacity-60">Off-site</span>}
+                    {r.event ? (
+                      <div>
+                        <div className="font-medium text-ink">{r.event.title}</div>
+                        {r.phase && <div className="text-xs">{r.phase.name}</div>}
+                      </div>
+                    ) : (
+                      <span className="opacity-60">—</span>
+                    )}
                   </td>
                   <td className="py-3 font-mono text-xs text-muted">
                     {Number(r.latitude).toFixed(5)}, {Number(r.longitude).toFixed(5)}
@@ -144,11 +151,11 @@ export default async function ScansPage({
 }
 
 function ScansShell({
-  sites,
+  events,
   count,
   children,
 }: {
-  sites: SiteOption[];
+  events: { id: string; title: string }[];
   count: number;
   children: React.ReactNode;
 }) {
@@ -161,7 +168,7 @@ function ScansShell({
         </p>
       </div>
 
-      <FilterBar sites={sites} />
+      <FilterBar events={events} />
 
       <div className="card p-5">{children}</div>
     </div>

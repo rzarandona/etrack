@@ -1,11 +1,11 @@
 import { Session } from '@supabase/supabase-js';
 import { createContext, useContext, useEffect, useState } from 'react';
 import { supabase } from './supabase';
-import type { SupervisorProfile } from './types';
+import type { UserProfile } from './types';
 
 type AuthState = {
   session: Session | null;
-  profile: SupervisorProfile | null;
+  profile: UserProfile | null;
   loading: boolean;
   signIn: (email: string, password: string) => Promise<{ error: string | null }>;
   signOut: () => Promise<void>;
@@ -15,7 +15,7 @@ const AuthContext = createContext<AuthState | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
-  const [profile, setProfile] = useState<SupervisorProfile | null>(null);
+  const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -36,11 +36,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return;
     }
     supabase
-      .from('supervisor_profiles')
+      .from('user_profiles')
       .select('*')
-      .eq('id', session.user.id)
+      .eq('auth_user_id', session.user.id)
       .single()
-      .then(({ data }) => setProfile((data as SupervisorProfile) ?? null));
+      .then(({ data }) => setProfile((data as UserProfile) ?? null));
   }, [session?.user?.id]);
 
   const value: AuthState = {

@@ -1,9 +1,12 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { signEmployeePhoto } from '@/lib/badge';
+import { formatMoney } from '@/lib/format';
 import { getSupabaseServer } from '@/lib/supabase/server';
 import type { Employee } from '@/lib/types';
+import { BadgeActions } from './badge-actions';
 import { DeactivateButton } from './deactivate-button';
+import { DeleteEmployeeButton } from './delete-button';
 
 export default async function EmployeeDetailPage({
   params,
@@ -39,6 +42,7 @@ export default async function EmployeeDetailPage({
             Edit
           </Link>
           <DeactivateButton id={emp.id} active={emp.active} />
+          <DeleteEmployeeButton id={emp.id} fullName={emp.full_name} />
         </div>
       </div>
 
@@ -54,7 +58,7 @@ export default async function EmployeeDetailPage({
               </span>
             </Detail>
             <Detail label="Hourly rate">
-              {emp.hourly_rate ?? <span style={{ color: 'var(--muted)' }}>—</span>}
+              {emp.hourly_rate ? formatMoney(emp.hourly_rate) : <span style={{ color: 'var(--muted)' }}>—</span>}
             </Detail>
             <Detail label="Birthdate">
               {emp.birthdate ?? <span style={{ color: 'var(--muted)' }}>—</span>}
@@ -85,6 +89,9 @@ export default async function EmployeeDetailPage({
               ID Card Preview
             </span>
             <IdCard employee={emp} photoUrl={photoUrl} qrUrl={qrUrl} />
+            <div className="w-full pt-3 mt-1 border-t border-line">
+              <BadgeActions qrUrl={qrUrl} employeeCode={emp.employee_code} />
+            </div>
           </div>
         </div>
       </div>
@@ -159,7 +166,7 @@ function IdCard({
               <Field label="Phone" value={employee.contact_no} mono />
             )}
             {employee.hourly_rate && (
-              <Field label="Rate" value={`${employee.hourly_rate}/hr`} />
+              <Field label="Rate" value={`${formatMoney(employee.hourly_rate)}/hr`} />
             )}
           </dl>
         </div>

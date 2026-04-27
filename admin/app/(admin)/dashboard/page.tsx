@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { Avatar } from '@/lib/components/avatar';
 import { ScanTypePill } from '@/lib/components/pills';
+import { formatScanWhen } from '@/lib/format';
 import { getSupabaseServer } from '@/lib/supabase/server';
 
 type RecentRow = {
@@ -19,7 +20,7 @@ export default async function Dashboard() {
     { count: scansToday },
     { count: activeEmployees },
     { count: mockFlags },
-    { count: activeSites },
+    { count: upcomingEvents },
     { data: recent },
   ] = await Promise.all([
     supabase
@@ -32,7 +33,11 @@ export default async function Dashboard() {
       .select('id', { count: 'exact', head: true })
       .gte('server_timestamp', startOfDay.toISOString())
       .eq('is_mock_location', true),
-    supabase.from('sites').select('id', { count: 'exact', head: true }).eq('active', true),
+    supabase
+      .from('events')
+      .select('id', { count: 'exact', head: true })
+      .gte('starts_at', new Date().toISOString())
+      .neq('status', 'cancelled'),
     supabase
       .from('scans')
       .select(
@@ -53,20 +58,12 @@ export default async function Dashboard() {
             Track scans, manage employees, and prep payroll.
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          <Link href="/badges" className="btn-secondary">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/>
-            </svg>
-            Export badges
-          </Link>
-          <Link href="/employees/new" className="btn-primary">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M12 5v14M5 12h14"/>
-            </svg>
-            Add employee
-          </Link>
-        </div>
+        <Link href="/employees/new" className="btn-primary">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M12 5v14M5 12h14"/>
+          </svg>
+          Add employee
+        </Link>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 mb-5">
@@ -108,13 +105,13 @@ export default async function Dashboard() {
           }
         />
         <Stat
-          label="Active sites"
-          value={activeSites ?? 0}
-          href="/sites"
+          label="Upcoming events"
+          value={upcomingEvents ?? 0}
+          href="/events"
           icon={
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
-              <circle cx="12" cy="10" r="3"/>
+              <rect width="18" height="18" x="3" y="4" rx="2"/>
+              <path d="M16 2v4M8 2v4M3 10h18"/>
             </svg>
           }
         />
@@ -163,7 +160,7 @@ export default async function Dashboard() {
                       <ScanTypePill type={r.scan_type} />
                     </td>
                     <td className="py-3 text-right pr-2 text-muted">
-                      {new Date(r.server_timestamp).toLocaleString()}
+                      {formatScanWhen(r.server_timestamp)}
                     </td>
                   </tr>
                 ))}

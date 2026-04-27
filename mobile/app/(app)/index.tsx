@@ -34,7 +34,6 @@ export default function Home() {
   const [directory, setDirectory] = useState<DirectoryStatus>({
     refreshedAt: null,
     employeeCount: 0,
-    siteCount: 0,
   });
 
   const refresh = useCallback(async () => {
@@ -114,8 +113,7 @@ export default function Home() {
 
       <Text style={styles.dirStatus}>
         Offline directory: {directory.employeeCount} employee
-        {directory.employeeCount === 1 ? '' : 's'} · {directory.siteCount} site
-        {directory.siteCount === 1 ? '' : 's'} · refreshed {relativeTime(directory.refreshedAt)}
+        {directory.employeeCount === 1 ? '' : 's'} · refreshed {relativeTime(directory.refreshedAt)}
       </Text>
 
       <Pressable style={styles.scanButton} onPress={() => router.push('/(app)/scan')}>

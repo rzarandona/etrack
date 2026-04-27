@@ -16,11 +16,10 @@ import {
   View,
 } from 'react-native';
 import { useAuth } from '@/lib/auth';
-import { getCachedEmployee, getCachedSites } from '@/lib/directory';
-import { haversineMeters } from '@/lib/geo';
+import { getCachedEmployee } from '@/lib/directory';
 import { enqueue, flush } from '@/lib/queue';
 import { supabase } from '@/lib/supabase';
-import type { Employee, ScanType, Site } from '@/lib/types';
+import type { Employee, ScanType } from '@/lib/types';
 import { uuidv4 } from '@/lib/uuid';
 
 const PHOTO_DIR = `${FileSystem.documentDirectory}etrack/photos/`;
@@ -39,10 +38,9 @@ export default function Confirm() {
   const [cameraPerm, requestCameraPerm] = useCameraPermissions();
 
   const [employee, setEmployee] = useState<Employee | null>(null);
-  const [sites, setSites] = useState<Site[]>([]);
-  const [siteId, setSiteId] = useState<string | null>(null);
   const [coords, setCoords] = useState<Location.LocationObject | null>(null);
   const [scanType, setScanType] = useState<ScanType>('in');
+  const [scanTypeUnknown, setScanTypeUnknown] = useState(true);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -57,7 +55,6 @@ export default function Confirm() {
     let cancelled = false;
     (async () => {
       try {
-        // 1) Employee — try local directory cache first so offline scans work.
         let emp = await getCachedEmployee(employeeId);
         if (!emp) {
           const { data, error: empErr } = await supabase
@@ -76,11 +73,10 @@ export default function Confirm() {
         if (cancelled) return;
         setEmployee(emp);
 
-        // 2) Default in/out — only meaningful when online; default to 'in' offline.
         try {
           const startOfDay = new Date();
           startOfDay.setHours(0, 0, 0, 0);
-          const { data: last } = await supabase
+          const { data: last, error: lastErr } = await supabase
             .from('scans')
             .select('scan_type')
             .eq('employee_id', employeeId)
@@ -88,16 +84,17 @@ export default function Confirm() {
             .order('server_timestamp', { ascending: false })
             .limit(1)
             .maybeSingle();
-          if (!cancelled) setScanType(last?.scan_type === 'in' ? 'out' : 'in');
+          if (lastErr) throw lastErr;
+          if (!cancelled) {
+            setScanType(last?.scan_type === 'in' ? 'out' : 'in');
+            setScanTypeUnknown(false);
+          }
         } catch {
-          // offline — leave the default 'in', supervisor can override
+          // offline or query failed — keep the default 'in' but flag it as
+          // unverified so the supervisor knows to double-check the toggle.
+          if (!cancelled) setScanTypeUnknown(true);
         }
 
-        // 3) Sites — read from cache. Empty array is fine (off-site only).
-        const cachedSites = await getCachedSites();
-        if (!cancelled) setSites(cachedSites);
-
-        // 4) GPS — required for every scan, online or offline.
         const perm = await Location.requestForegroundPermissionsAsync();
         if (perm.status !== 'granted') {
           throw new Error('Location permission denied. Enable location to record scans.');
@@ -117,8 +114,6 @@ export default function Confirm() {
     };
   }, [employeeId]);
 
-  // Clean up captured photo if the user backs out without submitting.
-  // Once submitted, the queue owns the file and will delete it after upload.
   useEffect(() => {
     return () => {
       if (photoUri && !wasSubmittedRef.current) {
@@ -127,42 +122,18 @@ export default function Confirm() {
     };
   }, [photoUri]);
 
-  const selectedSite = useMemo(
-    () => (siteId ? sites.find((s) => s.id === siteId) ?? null : null),
-    [siteId, sites]
-  );
-
   const blockReason: string | null = useMemo(() => {
     if (!coords) return null;
     if (coords.mocked === true) {
       return 'Mock location detected. Turn off any mock-location app and try again.';
     }
-    if (
-      selectedSite &&
-      selectedSite.latitude &&
-      selectedSite.longitude &&
-      selectedSite.geofence_radius_m
-    ) {
-      const distance = haversineMeters(
-        { latitude: coords.coords.latitude, longitude: coords.coords.longitude },
-        {
-          latitude: parseFloat(selectedSite.latitude),
-          longitude: parseFloat(selectedSite.longitude),
-        }
-      );
-      if (distance > selectedSite.geofence_radius_m) {
-        return `Outside ${selectedSite.name}: you are ${Math.round(distance)} m away, allowed ${selectedSite.geofence_radius_m} m. Move closer or pick "Off-site".`;
-      }
-    }
     return null;
-  }, [coords, selectedSite]);
+  }, [coords]);
 
   const openCamera = async () => {
     if (!cameraPerm?.granted) {
       const r = await requestCameraPerm();
       if (!r.granted) {
-        // OS has remembered a prior denial — send to Settings directly.
-        // openSettings is native-only; on web fall back to a plain alert.
         const buttons: { text: string; style?: 'cancel'; onPress?: () => void }[] = [
           { text: 'Cancel', style: 'cancel' },
         ];
@@ -190,7 +161,6 @@ export default function Confirm() {
       const dest = `${PHOTO_DIR}${uuidv4()}.jpg`;
       await FileSystem.moveAsync({ from: pic.uri, to: dest });
 
-      // Replace any previous photo
       if (photoUri) {
         await FileSystem.deleteAsync(photoUri, { idempotent: true }).catch(() => {});
       }
@@ -220,19 +190,23 @@ export default function Confirm() {
       await enqueue({
         client_scan_id: uuidv4(),
         employee_id: employee.id,
-        site_id: siteId,
+        // event_id and phase_id will be populated in Phase 2 once event pickers
+        // land on this screen. For now scans go in unscoped.
+        event_id: null,
+        phase_id: null,
         scan_type: scanType,
         device_timestamp: new Date().toISOString(),
         latitude: coords.coords.latitude,
         longitude: coords.coords.longitude,
         accuracy_m: coords.coords.accuracy ?? null,
         is_mock_location: coords.mocked === true,
+        self_clocked: false,
         local_photo_uri: photoUri,
         queued_at: new Date().toISOString(),
         attempts: 0,
         last_error: null,
       });
-      wasSubmittedRef.current = true; // queue now owns the photo file
+      wasSubmittedRef.current = true;
       const synced = await flush(session.user.id);
       Alert.alert(
         'Scan recorded',
@@ -307,6 +281,14 @@ export default function Confirm() {
         ))}
       </View>
 
+      {scanTypeUnknown && (
+        <View style={styles.warnBanner}>
+          <Text style={styles.warnText}>
+            Couldn&apos;t check today&apos;s scans (offline?). Verify In/Out manually before submit.
+          </Text>
+        </View>
+      )}
+
       <View style={styles.section}>
         <Text style={styles.label}>Location</Text>
         <Text style={styles.value}>
@@ -314,31 +296,6 @@ export default function Confirm() {
         </Text>
         <Text style={styles.meta}>accuracy ±{coords.coords.accuracy?.toFixed(0) ?? '?'} m</Text>
       </View>
-
-      {sites.length > 0 && (
-        <View style={styles.section}>
-          <Text style={styles.label}>Site (optional)</Text>
-          <View style={styles.siteRow}>
-            <Pressable
-              style={[styles.sitePill, siteId === null && styles.sitePillActive]}
-              onPress={() => setSiteId(null)}>
-              <Text style={[styles.sitePillText, siteId === null && styles.sitePillTextActive]}>
-                Off-site
-              </Text>
-            </Pressable>
-            {sites.map((s) => (
-              <Pressable
-                key={s.id}
-                style={[styles.sitePill, siteId === s.id && styles.sitePillActive]}
-                onPress={() => setSiteId(s.id)}>
-                <Text style={[styles.sitePillText, siteId === s.id && styles.sitePillTextActive]}>
-                  {s.name}
-                </Text>
-              </Pressable>
-            ))}
-          </View>
-        </View>
-      )}
 
       <View style={styles.section}>
         <Text style={styles.label}>Verification photo (optional)</Text>
@@ -407,11 +364,6 @@ const styles = StyleSheet.create({
   label: { fontSize: 12, color: '#64748b', textTransform: 'uppercase', letterSpacing: 1 },
   value: { fontSize: 16, fontWeight: '500' },
   meta: { fontSize: 12, color: '#64748b' },
-  siteRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 4 },
-  sitePill: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, backgroundColor: '#f1f5f9' },
-  sitePillActive: { backgroundColor: '#2563eb' },
-  sitePillText: { color: '#475569', fontWeight: '500' },
-  sitePillTextActive: { color: '#fff' },
   photoCta: {
     backgroundColor: '#f1f5f9',
     paddingVertical: 14,
@@ -441,6 +393,14 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   blockText: { color: '#991b1b', fontWeight: '500', fontSize: 14, lineHeight: 20 },
+  warnBanner: {
+    backgroundColor: '#fef3c7',
+    borderLeftWidth: 4,
+    borderLeftColor: '#d97706',
+    padding: 10,
+    borderRadius: 8,
+  },
+  warnText: { color: '#92400e', fontSize: 13, lineHeight: 18 },
   submit: {
     marginTop: 4,
     backgroundColor: '#0f172a',
@@ -454,7 +414,6 @@ const styles = StyleSheet.create({
   cancelText: { color: '#64748b', fontSize: 14 },
   btn: { backgroundColor: '#2563eb', paddingHorizontal: 24, paddingVertical: 12, borderRadius: 10 },
   btnText: { color: '#fff', fontWeight: '600' },
-  // Camera mode
   cameraRoot: { flex: 1, backgroundColor: '#000' },
   cameraControls: {
     position: 'absolute',

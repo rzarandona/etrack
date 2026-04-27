@@ -58,3 +58,18 @@ export async function setRateActive(id: string, active: boolean): Promise<RateAc
   revalidatePath('/employees');
   return { ok: true };
 }
+
+/**
+ * Hard delete: rates are just presets (employees denormalize the numeric
+ * hourly_rate at save time, no FK), so deletion is safe and doesn't affect
+ * existing employee records.
+ */
+export async function deleteRate(id: string): Promise<RateActionResult> {
+  await requireAdmin();
+  const supabase = await getSupabaseServer();
+  const { error } = await supabase.from('rates').delete().eq('id', id);
+  if (error) return { ok: false, error: error.message };
+  revalidatePath('/rates');
+  revalidatePath('/employees');
+  return { ok: true };
+}

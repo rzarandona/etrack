@@ -222,3 +222,40 @@ export async function setEmployeeActive(id: string, active: boolean): Promise<Ac
   revalidatePath('/employees');
   return { ok: true };
 }
+
+/**
+ * Hard delete: removes the employee row and any photo/badge files in
+ * employee-photos storage. Will fail if scan history references this
+ * employee (FK constraint) — caller should fall back to Deactivate.
+ */
+export async function deleteEmployee(id: string): Promise<ActionResult> {
+  await requireAdmin();
+  const supabase = await getSupabaseServer();
+
+  const { error } = await supabase.from('employees').delete().eq('id', id);
+  if (error) {
+    // 23503 = foreign_key_violation — employee has scan history etc.
+    if ((error as { code?: string }).code === '23503') {
+      return {
+        ok: false,
+        error:
+          'Cannot delete: this employee has scan history. Deactivate instead to preserve payroll records.',
+      };
+    }
+    return { ok: false, error: error.message };
+  }
+
+  // Best-effort cleanup of the {employee_id}/ folder in employee-photos.
+  // We list and remove rather than risking an orphaned upload.
+  const { data: files } = await supabase.storage
+    .from('employee-photos')
+    .list(id);
+  if (files && files.length > 0) {
+    await supabase.storage
+      .from('employee-photos')
+      .remove(files.map((f) => `${id}/${f.name}`));
+  }
+
+  revalidatePath('/employees');
+  return { ok: true };
+}

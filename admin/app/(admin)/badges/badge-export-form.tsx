@@ -1,19 +1,27 @@
 'use client';
 
-import { useMemo, useState } from 'react';
-import type { Employee } from '@/lib/types';
+import { useRouter } from 'next/navigation';
+import { useMemo, useState, useTransition } from 'react';
+import { useConfirm } from '@/lib/components/confirm';
+import type { BadgeStatus, Employee } from '@/lib/types';
+import { deleteBadges } from './actions';
 
 type EmployeePick = Pick<Employee, 'id' | 'employee_code' | 'full_name' | 'active'>;
 
 export function BadgeExportForm({
   employees,
   qrUrlByEmployeeId,
+  statusByEmployeeId,
 }: {
   employees: EmployeePick[];
   qrUrlByEmployeeId: Record<string, string | null>;
+  statusByEmployeeId: Record<string, BadgeStatus>;
 }) {
+  const router = useRouter();
+  const confirm = useConfirm();
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [busy, setBusy] = useState(false);
+  const [deleting, startDelete] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState('');
 
@@ -100,13 +108,14 @@ export function BadgeExportForm({
           <ul className="max-h-96 overflow-y-auto">
             {filtered.map((e, idx) => {
               const qrUrl = qrUrlByEmployeeId[e.id] ?? null;
+              const badgeStatus = statusByEmployeeId[e.id];
               return (
                 <li
                   key={e.id}
                   className={`px-4 py-3 table-row ${idx > 0 ? 'border-t' : ''}`}
                   style={{
                     display: 'grid',
-                    gridTemplateColumns: 'auto 56px 1fr auto',
+                    gridTemplateColumns: 'auto 56px 1fr auto auto',
                     alignItems: 'center',
                     gap: '16px',
                     borderColor: 'var(--line)',
@@ -151,6 +160,17 @@ export function BadgeExportForm({
                     </div>
                   </div>
                   <div>
+                    {badgeStatus === 'active' && (
+                      <span className="pill status-active">● Active</span>
+                    )}
+                    {badgeStatus === 'deleted' && (
+                      <span className="pill status-pending">● Deleted</span>
+                    )}
+                    {!badgeStatus && (
+                      <span className="pill status-inactive">Not generated</span>
+                    )}
+                  </div>
+                  <div>
                     {!e.active && <span className="pill status-inactive">Inactive</span>}
                   </div>
                 </li>
@@ -170,9 +190,40 @@ export function BadgeExportForm({
         <span className="text-sm" style={{ color: 'var(--muted)' }}>
           {selected.size} selected
         </span>
-        <button onClick={exportZip} disabled={busy || selected.size === 0} className="btn-primary">
-          {busy ? 'Building ZIP…' : `Export ${selected.size} badge${selected.size === 1 ? '' : 's'}`}
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={async () => {
+              if (selected.size === 0) return;
+              const ok = await confirm({
+                title: `Delete ${selected.size} badge${selected.size === 1 ? '' : 's'}?`,
+                message:
+                  'The QR PNG files will be removed from storage. Employee records are kept; saving an employee regenerates their badge.',
+                destructive: true,
+              });
+              if (!ok) return;
+              startDelete(async () => {
+                setError(null);
+                const r = await deleteBadges(Array.from(selected));
+                if (!r.ok) {
+                  setError(r.error);
+                  return;
+                }
+                setSelected(new Set());
+                router.refresh();
+              });
+            }}
+            disabled={busy || deleting || selected.size === 0}
+            className="btn-secondary"
+            style={{ color: 'var(--accent-deep)' }}>
+            {deleting ? 'Deleting…' : `Delete ${selected.size} badge${selected.size === 1 ? '' : 's'}`}
+          </button>
+          <button
+            onClick={exportZip}
+            disabled={busy || deleting || selected.size === 0}
+            className="btn-primary">
+            {busy ? 'Building ZIP…' : `Export ${selected.size} badge${selected.size === 1 ? '' : 's'}`}
+          </button>
+        </div>
       </div>
     </div>
   );

@@ -1,11 +1,14 @@
 'use client';
 
 import { useState, useTransition } from 'react';
+import { useConfirm } from '@/lib/components/confirm';
 import { StatusPill } from '@/lib/components/pills';
+import { formatMoney } from '@/lib/format';
 import type { Rate } from '@/lib/types';
-import { setRateActive, updateRate } from './actions';
+import { deleteRate, updateRate } from './actions';
 
 export function RateRow({ rate }: { rate: Rate }) {
+  const confirm = useConfirm();
   const [editing, setEditing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pending, start] = useTransition();
@@ -32,7 +35,7 @@ export function RateRow({ rate }: { rate: Rate }) {
             className="input w-32 text-right"
           />
         ) : (
-          <span className="tabular-nums font-semibold">{rate.hourly_rate}</span>
+          <span className="tabular-nums font-semibold">{formatMoney(rate.hourly_rate)}</span>
         )}
       </td>
       <td className="py-3 pl-2">
@@ -67,17 +70,22 @@ export function RateRow({ rate }: { rate: Rate }) {
               Edit
             </button>
             <button
-              onClick={() =>
+              onClick={async () => {
+                const ok = await confirm({
+                  title: `Delete rate "${rate.label}"?`,
+                  message: 'Employees already saved with this rate keep their value.',
+                  destructive: true,
+                });
+                if (!ok) return;
                 start(async () => {
                   setError(null);
-                  const r = await setRateActive(rate.id, !rate.active);
+                  const r = await deleteRate(rate.id);
                   if (!r.ok) setError(r.error);
-                })
-              }
+                });
+              }}
               disabled={pending}
-              className="btn-ghost-danger"
-              style={!rate.active ? { color: '#1F8E58' } : undefined}>
-              {rate.active ? 'Deactivate' : 'Reactivate'}
+              className="btn-ghost-danger">
+              {pending ? 'Deleting…' : 'Delete'}
             </button>
           </div>
         )}

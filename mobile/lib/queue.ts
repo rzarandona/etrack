@@ -135,13 +135,15 @@ export async function flush(supervisorId: string): Promise<number> {
       const { error } = await supabase.from('scans').insert({
         employee_id: s.employee_id,
         supervisor_id: supervisorId,
-        site_id: s.site_id,
+        event_id: s.event_id,
+        phase_id: s.phase_id,
         scan_type: s.scan_type,
         device_timestamp: s.device_timestamp,
         latitude: s.latitude,
         longitude: s.longitude,
         accuracy_m: s.accuracy_m,
         is_mock_location: s.is_mock_location,
+        self_clocked: s.self_clocked,
         client_scan_id: s.client_scan_id,
         verification_photo_url: photoPath, // stores storage path; admin generates signed URL on read
       });

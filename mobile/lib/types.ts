@@ -1,8 +1,24 @@
-export type Role = 'supervisor' | 'admin';
+export type Role = 'admin' | 'supervisor' | 'employee' | 'pending';
 export type ScanType = 'in' | 'out';
+export type EventStatus = 'planned' | 'in_progress' | 'completed' | 'cancelled';
+export type AssignmentRole = 'supervisor' | 'employee';
+
+/**
+ * The canonical user record. `id` is an internal UUID; `auth_user_id` is the
+ * FK to `auth.users` for loginable users (NULL for seed/test data).
+ */
+export type UserProfile = {
+  id: string;
+  auth_user_id: string | null;
+  full_name: string;
+  role: Role;
+  active: boolean;
+  created_at: string;
+};
 
 export type Employee = {
   id: string;
+  user_profile_id: string | null;
   employee_code: string;
   full_name: string;
   photo_url: string | null;
@@ -12,29 +28,33 @@ export type Employee = {
   updated_at: string;
 };
 
-export type Site = {
+export type EventRecord = {
   id: string;
-  name: string;
-  latitude: string | null;
-  longitude: string | null;
-  geofence_radius_m: number | null;
-  active: boolean;
-  created_at: string;
+  title: string;
+  venue: string | null;
+  venue_latitude: string | null;
+  venue_longitude: string | null;
+  starts_at: string;
+  ends_at: string | null;
+  status: EventStatus;
 };
 
-export type SupervisorProfile = {
+export type EventPhase = {
   id: string;
-  full_name: string;
-  role: Role;
-  active: boolean;
-  created_at: string;
+  event_id: string;
+  name: string;
+  starts_at: string | null;
+  ends_at: string | null;
+  ord: number;
+  pay_rate: string | null;
 };
 
 export type Scan = {
   id: string;
   employee_id: string;
   supervisor_id: string;
-  site_id: string | null;
+  event_id: string | null;
+  phase_id: string | null;
   scan_type: ScanType;
   server_timestamp: string;
   device_timestamp: string;
@@ -42,6 +62,7 @@ export type Scan = {
   longitude: string;
   accuracy_m: string | null;
   is_mock_location: boolean;
+  self_clocked: boolean;
   client_scan_id: string;
   verification_photo_url: string | null;
   created_at: string;
@@ -50,13 +71,15 @@ export type Scan = {
 export type PendingScan = {
   client_scan_id: string;
   employee_id: string;
-  site_id: string | null;
+  event_id: string | null;
+  phase_id: string | null;
   scan_type: ScanType;
   device_timestamp: string;
   latitude: number;
   longitude: number;
   accuracy_m: number | null;
   is_mock_location: boolean;
+  self_clocked: boolean;
   /** Local file:// uri of the captured photo, if any. Uploaded then cleared on flush. */
   local_photo_uri: string | null;
   queued_at: string;

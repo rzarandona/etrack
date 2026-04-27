@@ -7,10 +7,17 @@ alter table public.sites                 enable row level security;
 alter table public.supervisor_profiles   enable row level security;
 alter table public.scans                 enable row level security;
 
+-- Helpers query user_profiles directly. Marked SECURITY DEFINER so the
+-- inner select bypasses RLS — otherwise self-read policies that themselves
+-- call these helpers create exponential recursion that blows the statement
+-- timeout. Functions only return a boolean derived from auth.uid(), no
+-- data is leaked.
+
 -- Helper: is the caller an admin?
 create or replace function public.is_admin()
 returns boolean
-language sql stable
+language sql stable security definer
+set search_path = public
 as $$
   select exists (
     select 1 from public.supervisor_profiles
@@ -21,7 +28,8 @@ $$;
 -- Helper: is the caller an active supervisor or admin?
 create or replace function public.is_supervisor()
 returns boolean
-language sql stable
+language sql stable security definer
+set search_path = public
 as $$
   select exists (
     select 1 from public.supervisor_profiles
