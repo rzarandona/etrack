@@ -1,0 +1,214 @@
+@import "tailwindcss";
+
+/* =====================================================================
+ * Design tokens — driven by assets/payroli-dashboard.html
+ * Use these via the CSS variables (in inline style) or via the helper
+ * classes below. Pages that need the warm canvas + 18px cards should
+ * reach for `.card`, `.pill`, `.btn-primary`, etc.
+ * ===================================================================== */
+
+:root {
+  --bg: #F1EFEC;
+  --card: #FFFFFF;
+  --ink: #1B1A1A;
+  --muted: #8A8784;
+  --line: #ECE9E4;
+  --accent: #F25C2D;
+  --accent-soft: #FEE5DB;
+  --accent-deep: #D94817;
+  --green: #2BB673;
+  --green-soft: #DCF5E8;
+  --rose-soft: #FDE3DD;
+  --amber: #E8A23A;
+  --amber-soft: #FBEDD3;
+  --hover-soft: #F7F5F1;
+  --row-hover: #FBF9F6;
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-ink: var(--ink);
+  --color-muted: var(--muted);
+  --color-line: var(--line);
+  --color-accent: var(--accent);
+  --color-accent-soft: var(--accent-soft);
+  --color-accent-deep: var(--accent-deep);
+  --font-sans: var(--font-jakarta);
+}
+
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-jakarta), system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Card surface — 18px radius, white, subtle inset border via ring-soft. */
+.card {
+  background: var(--card);
+  border-radius: 18px;
+}
+
+/* Color utilities — replaces the dozens of inline style={{ color: ... }} */
+.text-muted { color: var(--muted); }
+.text-ink { color: var(--ink); }
+.text-deep { color: var(--accent-deep); }
+.text-accent { color: var(--accent); }
+.bg-soft { background: var(--hover-soft); }
+.bg-card { background: var(--card); }
+.bg-rose-soft { background: var(--rose-soft); }
+.bg-green-soft { background: var(--green-soft); }
+.border-line { border-color: var(--line); }
+
+/* Avatar gradient backgrounds (admin orange + variants). */
+.avatar-bg-orange { background: linear-gradient(135deg, #F25C2D, #F2924A); }
+.avatar-bg-mono { background: var(--ink); }
+
+/* 1px inset border, used on cards/buttons/inputs that don't otherwise have a ring. */
+.ring-soft {
+  box-shadow: inset 0 0 0 1px var(--line);
+}
+
+/* Sidebar nav active state. */
+.menu-active {
+  background: var(--accent);
+  color: white;
+  box-shadow: 0 8px 18px -8px rgba(242, 92, 45, 0.55);
+}
+.menu-item:hover:not(.menu-active) {
+  background: var(--hover-soft);
+}
+
+/* Stat card icon plate. */
+.stat-icon {
+  background: #F4F1EC;
+}
+
+/* Pills — generic + status variants. */
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-weight: 600;
+  font-size: 11px;
+}
+.pill-up { background: var(--green-soft); color: #1F8E58; }
+.pill-down { background: var(--rose-soft); color: var(--accent-deep); }
+.pill-neutral { background: var(--line); color: var(--muted); }
+.status-paid { background: var(--green-soft); color: #1F8E58; }
+.status-pending { background: var(--rose-soft); color: var(--accent-deep); }
+.status-processing { background: var(--amber-soft); color: #A86B14; }
+.status-active { background: var(--green-soft); color: #1F8E58; }
+.status-inactive { background: var(--line); color: var(--muted); }
+
+/* Tables: rows hover, headings always Capitalize Each Word. */
+.table-row:hover { background: var(--row-hover); }
+thead th { text-transform: capitalize; }
+
+/* Pointer cursor on every clickable button (browsers default <button> to
+ * the arrow cursor; Tailwind preflight doesn't override it). Disabled
+ * buttons stay on the default cursor so users get the right affordance. */
+button:not(:disabled),
+[role="button"]:not([aria-disabled="true"]) { cursor: pointer; }
+button:disabled,
+[role="button"][aria-disabled="true"] { cursor: not-allowed; }
+
+/* Avatar with white + line ring. */
+.avatar-ring { box-shadow: 0 0 0 2px white, 0 0 0 3px var(--line); }
+
+/* Buttons. */
+/* Capitalize Each Word on all headings, buttons, and button-styled elements. */
+h1, h2, h3, h4, h5, h6,
+button,
+.btn-primary,
+.btn-secondary,
+.btn-ghost-danger {
+  text-transform: capitalize;
+}
+
+.btn-primary {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--accent);
+  color: white;
+  font-weight: 600;
+  font-size: 14px;
+  padding: 10px 16px;
+  border-radius: 16px;
+  transition: background-color 120ms ease;
+}
+.btn-primary:hover:not(:disabled) { background: var(--accent-deep); }
+.btn-primary:disabled { opacity: 0.6; cursor: not-allowed; }
+
+.btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--card);
+  color: var(--ink);
+  font-weight: 600;
+  font-size: 14px;
+  padding: 10px 16px;
+  border-radius: 16px;
+  box-shadow: inset 0 0 0 1px var(--line);
+  transition: background-color 120ms ease;
+}
+.btn-secondary:hover:not(:disabled) { background: var(--hover-soft); }
+.btn-secondary:disabled { opacity: 0.6; cursor: not-allowed; }
+
+.btn-ghost-danger {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--accent-deep);
+  font-weight: 600;
+  font-size: 13px;
+  padding: 6px 10px;
+  border-radius: 10px;
+}
+.btn-ghost-danger:hover:not(:disabled) { background: var(--rose-soft); }
+
+/* Inputs (use on form fields where a Tailwind utility chain would be noisy). */
+.input {
+  width: 100%;
+  background: white;
+  color: var(--ink);
+  padding: 10px 14px;
+  border-radius: 12px;
+  box-shadow: inset 0 0 0 1px var(--line);
+  outline: none;
+  transition: box-shadow 120ms ease;
+}
+.input:focus { box-shadow: inset 0 0 0 1px var(--accent); }
+textarea.input { resize: vertical; min-height: 80px; }
+
+.label {
+  display: block;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+  margin-bottom: 4px;
+}
+
+/* Section legends inside cards. */
+fieldset.section {
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 16px;
+}
+fieldset.section > legend {
+  padding: 0 6px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+}
+
+/* Hide horizontal scrollbar in tables on overflow. */
+.scroll-hide::-webkit-scrollbar { display: none; }

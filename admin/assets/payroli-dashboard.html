@@ -1,0 +1,597 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Payroli — Employee & Payroll Admin</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #F1EFEC;
+    --card: #FFFFFF;
+    --ink: #1B1A1A;
+    --muted: #8A8784;
+    --line: #ECE9E4;
+    --accent: #F25C2D;
+    --accent-soft: #FEE5DB;
+    --accent-deep: #D94817;
+    --green: #2BB673;
+    --green-soft: #DCF5E8;
+    --rose-soft: #FDE3DD;
+    --amber: #E8A23A;
+    --amber-soft: #FBEDD3;
+  }
+  * { font-family: 'Plus Jakarta Sans', system-ui, sans-serif; }
+  body { background: var(--bg); color: var(--ink); -webkit-font-smoothing: antialiased; }
+  .card { background: var(--card); border-radius: 18px; }
+  .menu-active {
+    background: var(--accent);
+    color: white;
+    box-shadow: 0 8px 18px -8px rgba(242,92,45,0.55);
+  }
+  .menu-item:hover:not(.menu-active) { background: #F7F5F1; }
+  .stat-icon { background: #F4F1EC; }
+  .pill { display:inline-flex; align-items:center; gap:4px; padding:2px 8px; border-radius: 999px; font-weight:600; font-size:11px; }
+  .pill-up { background: var(--green-soft); color: #1F8E58; }
+  .pill-down { background: var(--rose-soft); color: var(--accent-deep); }
+  .status-pending { background: var(--rose-soft); color: var(--accent-deep); }
+  .status-paid { background: var(--green-soft); color: #1F8E58; }
+  .status-processing { background: var(--amber-soft); color: #A86B14; }
+  .table-row:hover { background: #FBF9F6; }
+  .scroll-hide::-webkit-scrollbar { display: none; }
+  .tooltip-bubble {
+    position: relative;
+    background: var(--ink);
+    color: white;
+    padding: 6px 10px;
+    border-radius: 10px;
+    font-size: 12px;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+  .tooltip-bubble::after {
+    content: '';
+    position: absolute;
+    bottom: -4px; left: 50%;
+    transform: translateX(-50%) rotate(45deg);
+    width: 8px; height: 8px;
+    background: var(--ink);
+  }
+  .diag-pattern {
+    background-image: repeating-linear-gradient(135deg, rgba(255,255,255,0.18) 0 4px, transparent 4px 8px);
+  }
+  .diag-pattern-dark {
+    background-image: repeating-linear-gradient(135deg, rgba(255,255,255,0.12) 0 4px, transparent 4px 8px);
+  }
+  .ring-soft { box-shadow: inset 0 0 0 1px var(--line); }
+  .avatar-ring { box-shadow: 0 0 0 2px white, 0 0 0 3px var(--line); }
+  .check { width:16px; height:16px; border:1.5px solid #D4D0CA; border-radius:5px; display:inline-block; }
+</style>
+</head>
+<body class="min-h-screen p-4 lg:p-6">
+
+  <div class="max-w-[1400px] mx-auto">
+
+    <!-- TOP BAR -->
+    <header class="card flex items-center justify-between px-5 py-3 mb-5">
+      <div class="flex items-center gap-2.5">
+        <div class="w-10 h-10 rounded-xl flex items-center justify-center" style="background:var(--accent);">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+        </div>
+        <span class="font-extrabold text-xl tracking-tight">Payroli</span>
+      </div>
+
+      <div class="flex-1 max-w-md mx-8 hidden md:block">
+        <div class="relative">
+          <svg class="absolute left-4 top-1/2 -translate-y-1/2 text-stone-400" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+          <input type="text" placeholder="Search employee, department or payslip"
+            class="w-full pl-11 pr-16 py-2.5 rounded-full text-sm focus:outline-none"
+            style="background:#F5F2ED; color:var(--ink);" />
+          <div class="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1 text-xs text-stone-400 font-medium">
+            <span class="px-1.5 py-0.5 rounded border border-stone-300 bg-white">⌘</span>
+            <span class="px-1.5 py-0.5 rounded border border-stone-300 bg-white">K</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-3">
+        <button class="w-10 h-10 rounded-full flex items-center justify-center hover:bg-stone-100 relative">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
+          <span class="absolute top-2 right-2.5 w-2 h-2 rounded-full" style="background:var(--accent);"></span>
+        </button>
+        <button class="w-10 h-10 rounded-full flex items-center justify-center hover:bg-stone-100">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></svg>
+        </button>
+        <div class="flex items-center gap-2 pl-3 border-l border-stone-200">
+          <div class="w-9 h-9 rounded-full flex items-center justify-center text-white font-bold text-sm" style="background:linear-gradient(135deg,#F25C2D,#F2924A);">AM</div>
+          <div class="hidden md:block leading-tight">
+            <div class="text-sm font-bold">Aria Mendez</div>
+            <div class="text-xs" style="color:var(--muted);">HR Admin</div>
+          </div>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+        </div>
+      </div>
+    </header>
+
+    <div class="flex gap-5">
+
+      <!-- SIDEBAR -->
+      <aside class="card w-60 shrink-0 p-3 hidden lg:block self-start">
+        <div class="px-3 pt-2 pb-1">
+          <div class="text-xs font-semibold uppercase tracking-wider" style="color:var(--muted);">Menu</div>
+        </div>
+        <nav class="flex flex-col gap-1 mt-1">
+          <a class="menu-item menu-active flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold cursor-pointer">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="7" height="9" x="3" y="3" rx="1.5"/><rect width="7" height="5" x="14" y="3" rx="1.5"/><rect width="7" height="9" x="14" y="12" rx="1.5"/><rect width="7" height="5" x="3" y="16" rx="1.5"/></svg>
+            Dashboard
+          </a>
+          <a class="menu-item flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium cursor-pointer text-stone-700">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+            Attendance
+            <span class="ml-auto text-[10px] font-bold px-2 py-0.5 rounded-full text-white" style="background:var(--accent);">12</span>
+          </a>
+          <a class="menu-item flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium cursor-pointer text-stone-700">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+            Payroll
+          </a>
+          <a class="menu-item flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium cursor-pointer text-stone-700">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/></svg>
+            Performance
+          </a>
+          <a class="menu-item flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium cursor-pointer text-stone-700">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+            Time Off
+          </a>
+        </nav>
+
+        <div class="px-3 pt-5 pb-1">
+          <div class="text-xs font-semibold uppercase tracking-wider" style="color:var(--muted);">Workforce</div>
+        </div>
+        <nav class="flex flex-col gap-1 mt-1">
+          <a class="menu-item flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium cursor-pointer text-stone-700">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+            Employees
+            <span class="ml-auto text-[10px] font-bold px-2 py-0.5 rounded-full text-white" style="background:var(--accent);">99+</span>
+          </a>
+          <a class="menu-item flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium cursor-pointer text-stone-700">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="14" x="2" y="6" rx="2"/><path d="M16 6V4a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/></svg>
+            Departments
+          </a>
+          <a class="menu-item flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium cursor-pointer text-stone-700">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M16 13H8M16 17H8M10 9H8"/></svg>
+            Documents
+          </a>
+          <a class="menu-item flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium cursor-pointer text-stone-700">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+            Recruitment
+          </a>
+        </nav>
+
+        <div class="px-3 pt-5 pb-1">
+          <div class="text-xs font-semibold uppercase tracking-wider" style="color:var(--muted);">General</div>
+        </div>
+        <nav class="flex flex-col gap-1 mt-1">
+          <a class="menu-item flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium cursor-pointer text-stone-700">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+            Settings
+          </a>
+          <a class="menu-item flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium cursor-pointer text-stone-700">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3M12 17h.01"/></svg>
+            Help Desk
+          </a>
+          <a class="menu-item flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium cursor-pointer mt-1" style="color:var(--accent);">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></svg>
+            Log out
+          </a>
+        </nav>
+      </aside>
+
+      <!-- MAIN -->
+      <main class="flex-1 min-w-0">
+
+        <!-- HEADER ROW -->
+        <div class="flex flex-wrap items-center justify-between gap-3 mb-5">
+          <div>
+            <h1 class="text-3xl font-extrabold tracking-tight">Workforce Overview</h1>
+            <p class="text-sm mt-1" style="color:var(--muted);">Track attendance, manage payroll and monitor performance.</p>
+          </div>
+          <div class="flex items-center gap-2">
+            <button class="card px-4 py-2.5 text-sm font-semibold flex items-center gap-2 ring-soft">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+              Export
+            </button>
+            <button class="card px-4 py-2.5 text-sm font-semibold flex items-center gap-2 ring-soft">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+              Apr 1, 2026 — Apr 30, 2026
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+            </button>
+            <button class="px-4 py-2.5 text-sm font-semibold text-white rounded-2xl flex items-center gap-2" style="background:var(--accent);">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
+              Add Employee
+            </button>
+          </div>
+        </div>
+
+        <!-- STATS GRID -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 mb-5">
+
+          <div class="card p-5">
+            <div class="flex items-start justify-between">
+              <div>
+                <div class="text-sm" style="color:var(--muted);">Total Employees</div>
+                <div class="text-3xl font-extrabold mt-2 flex items-end gap-2">248
+                  <span class="pill pill-up mb-1">▲ 3.2%</span>
+                </div>
+              </div>
+              <div class="stat-icon w-10 h-10 rounded-xl flex items-center justify-center">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+              </div>
+            </div>
+            <div class="text-xs mt-3" style="color:var(--muted);">Last month: <span class="font-semibold text-stone-700">240</span></div>
+          </div>
+
+          <div class="card p-5">
+            <div class="flex items-start justify-between">
+              <div>
+                <div class="text-sm" style="color:var(--muted);">Present Today</div>
+                <div class="text-3xl font-extrabold mt-2 flex items-end gap-2">215
+                  <span class="pill pill-up mb-1">▲ 5.8%</span>
+                </div>
+              </div>
+              <div class="stat-icon w-10 h-10 rounded-xl flex items-center justify-center">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><path d="m9 11 3 3L22 4"/></svg>
+              </div>
+            </div>
+            <div class="text-xs mt-3" style="color:var(--muted);">Last month: <span class="font-semibold text-stone-700">203</span></div>
+          </div>
+
+          <div class="card p-5">
+            <div class="flex items-start justify-between">
+              <div>
+                <div class="text-sm" style="color:var(--muted);">On Leave</div>
+                <div class="text-3xl font-extrabold mt-2 flex items-end gap-2">21
+                  <span class="pill pill-down mb-1">▼ 2.1%</span>
+                </div>
+              </div>
+              <div class="stat-icon w-10 h-10 rounded-xl flex items-center justify-center">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M16 2v4M8 2v4M3 10h18M8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01"/></svg>
+              </div>
+            </div>
+            <div class="text-xs mt-3" style="color:var(--muted);">Last month: <span class="font-semibold text-stone-700">23</span></div>
+          </div>
+
+          <div class="card p-5">
+            <div class="flex items-start justify-between">
+              <div>
+                <div class="text-sm" style="color:var(--muted);">Monthly Payroll</div>
+                <div class="text-3xl font-extrabold mt-2 flex items-end gap-2">$128,450
+                  <span class="pill pill-up mb-1">▲ 4.6%</span>
+                </div>
+              </div>
+              <div class="stat-icon w-10 h-10 rounded-xl flex items-center justify-center">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+              </div>
+            </div>
+            <div class="text-xs mt-3" style="color:var(--muted);">Last month: <span class="font-semibold text-stone-700">$122,800</span></div>
+          </div>
+
+        </div>
+
+        <!-- CHART ROW -->
+        <div class="grid grid-cols-1 xl:grid-cols-5 gap-4 mb-5">
+
+          <!-- ATTENDANCE CHART -->
+          <div class="card p-5 xl:col-span-3">
+            <div class="flex items-center justify-between mb-2">
+              <div>
+                <h2 class="text-lg font-bold">Attendance Analytics</h2>
+                <p class="text-xs" style="color:var(--muted);">Daily check-in volume across the workweek</p>
+              </div>
+              <button class="ring-soft px-3 py-1.5 rounded-full text-xs font-semibold flex items-center gap-1.5">
+                This Week
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+              </button>
+            </div>
+
+            <!-- SVG bar chart -->
+            <div class="relative">
+              <svg viewBox="0 0 620 300" class="w-full h-[300px]" xmlns="http://www.w3.org/2000/svg">
+                <!-- y-axis labels -->
+                <g font-size="10" fill="#A8A29E" font-family="Plus Jakarta Sans">
+                  <text x="0" y="40">240</text>
+                  <text x="0" y="90">200</text>
+                  <text x="0" y="140">160</text>
+                  <text x="0" y="190">120</text>
+                  <text x="0" y="240">80</text>
+                  <text x="0" y="280">0</text>
+                </g>
+                <!-- gridlines -->
+                <g stroke="#ECE9E4" stroke-dasharray="3 4">
+                  <line x1="35" y1="36" x2="615" y2="36"/>
+                  <line x1="35" y1="86" x2="615" y2="86"/>
+                  <line x1="35" y1="136" x2="615" y2="136"/>
+                  <line x1="35" y1="186" x2="615" y2="186"/>
+                  <line x1="35" y1="236" x2="615" y2="236"/>
+                  <line x1="35" y1="276" x2="615" y2="276" stroke="#D6D2CC"/>
+                </g>
+
+                <!-- Diagonal stripe pattern definitions -->
+                <defs>
+                  <pattern id="stripe-orange" patternUnits="userSpaceOnUse" width="6" height="6" patternTransform="rotate(45)">
+                    <rect width="6" height="6" fill="#F25C2D"/>
+                    <line x1="0" y1="0" x2="0" y2="6" stroke="#D94817" stroke-width="2"/>
+                  </pattern>
+                </defs>
+
+                <!-- Bars - capsule shape -->
+                <!-- Mon: 198 -->
+                <rect x="80" y="110" width="36" height="166" rx="18" fill="url(#stripe-orange)"/>
+                <!-- Tue: 220 -->
+                <rect x="160" y="80" width="36" height="196" rx="18" fill="url(#stripe-orange)"/>
+                <!-- Wed: 232 (highlight) -->
+                <rect x="240" y="65" width="36" height="211" rx="18" fill="url(#stripe-orange)"/>
+                <!-- Thu: 215 -->
+                <rect x="320" y="92" width="36" height="184" rx="18" fill="url(#stripe-orange)"/>
+                <!-- Fri: 207 -->
+                <rect x="400" y="105" width="36" height="171" rx="18" fill="url(#stripe-orange)"/>
+                <!-- Sat: 88 -->
+                <rect x="480" y="220" width="36" height="56" rx="18" fill="url(#stripe-orange)" opacity="0.55"/>
+                <!-- Sun: 42 -->
+                <rect x="560" y="248" width="36" height="28" rx="14" fill="url(#stripe-orange)" opacity="0.45"/>
+
+                <!-- Tooltip dot for Wed -->
+                <circle cx="258" cy="65" r="6" fill="white" stroke="#F25C2D" stroke-width="3"/>
+
+                <!-- x-axis labels -->
+                <g font-size="11" fill="#8A8784" font-weight="600" text-anchor="middle" font-family="Plus Jakarta Sans">
+                  <text x="98" y="295">Mon</text>
+                  <text x="178" y="295">Tue</text>
+                  <text x="258" y="295" fill="#1B1A1A">Wed</text>
+                  <text x="338" y="295">Thu</text>
+                  <text x="418" y="295">Fri</text>
+                  <text x="498" y="295">Sat</text>
+                  <text x="578" y="295">Sun</text>
+                </g>
+              </svg>
+
+              <!-- floating tooltip over Wed -->
+              <div class="absolute" style="left: calc(258px / 620 * 100%); top: 12px; transform: translateX(-50%);">
+                <div class="tooltip-bubble">232 check-ins</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- PAYROLL BREAKDOWN -->
+          <div class="card p-5 xl:col-span-2">
+            <div class="flex items-start justify-between mb-1">
+              <div>
+                <h2 class="text-lg font-bold">Payroll by Department</h2>
+                <p class="text-xs" style="color:var(--muted);">Salary vs bonus distribution</p>
+              </div>
+            </div>
+            <div class="flex items-center gap-4 mb-1">
+              <div class="flex items-center gap-1.5 text-xs font-semibold">
+                <span class="w-2.5 h-2.5 rounded-sm" style="background:var(--accent);"></span> Salary
+              </div>
+              <div class="flex items-center gap-1.5 text-xs font-semibold">
+                <span class="w-2.5 h-2.5 rounded-sm" style="background:#1B1A1A;"></span> Bonus
+              </div>
+            </div>
+
+            <svg viewBox="0 0 460 300" class="w-full h-[300px]" xmlns="http://www.w3.org/2000/svg">
+              <defs>
+                <pattern id="stripe-orange-2" patternUnits="userSpaceOnUse" width="6" height="6" patternTransform="rotate(45)">
+                  <rect width="6" height="6" fill="#F25C2D"/>
+                  <line x1="0" y1="0" x2="0" y2="6" stroke="#D94817" stroke-width="2"/>
+                </pattern>
+              </defs>
+              <g font-size="10" fill="#A8A29E" font-family="Plus Jakarta Sans">
+                <text x="0" y="40">50k</text>
+                <text x="0" y="90">40k</text>
+                <text x="0" y="140">30k</text>
+                <text x="0" y="190">20k</text>
+                <text x="0" y="240">10k</text>
+                <text x="0" y="280">0</text>
+              </g>
+              <g stroke="#ECE9E4" stroke-dasharray="3 4">
+                <line x1="35" y1="36" x2="455" y2="36"/>
+                <line x1="35" y1="86" x2="455" y2="86"/>
+                <line x1="35" y1="136" x2="455" y2="136"/>
+                <line x1="35" y1="186" x2="455" y2="186"/>
+                <line x1="35" y1="236" x2="455" y2="236"/>
+                <line x1="35" y1="276" x2="455" y2="276" stroke="#D6D2CC"/>
+              </g>
+
+              <!-- Each department: salary bar + bonus bar overlay -->
+              <!-- Engineering -->
+              <rect x="60" y="60" width="22" height="216" rx="6" fill="url(#stripe-orange-2)"/>
+              <rect x="84" y="180" width="14" height="96" rx="5" fill="#1B1A1A"/>
+              <!-- Design -->
+              <rect x="125" y="120" width="22" height="156" rx="6" fill="url(#stripe-orange-2)"/>
+              <rect x="149" y="210" width="14" height="66" rx="5" fill="#1B1A1A"/>
+              <!-- Sales -->
+              <rect x="190" y="90" width="22" height="186" rx="6" fill="url(#stripe-orange-2)"/>
+              <rect x="214" y="170" width="14" height="106" rx="5" fill="#1B1A1A"/>
+              <!-- Marketing -->
+              <rect x="255" y="150" width="22" height="126" rx="6" fill="url(#stripe-orange-2)"/>
+              <rect x="279" y="220" width="14" height="56" rx="5" fill="#1B1A1A"/>
+              <!-- Ops -->
+              <rect x="320" y="135" width="22" height="141" rx="6" fill="url(#stripe-orange-2)"/>
+              <rect x="344" y="225" width="14" height="51" rx="5" fill="#1B1A1A"/>
+              <!-- HR -->
+              <rect x="385" y="170" width="22" height="106" rx="6" fill="url(#stripe-orange-2)"/>
+              <rect x="409" y="240" width="14" height="36" rx="5" fill="#1B1A1A"/>
+
+              <g font-size="10" fill="#8A8784" font-weight="600" text-anchor="middle" font-family="Plus Jakarta Sans">
+                <text x="79" y="295">Eng</text>
+                <text x="144" y="295">Design</text>
+                <text x="209" y="295">Sales</text>
+                <text x="274" y="295">Mktg</text>
+                <text x="339" y="295">Ops</text>
+                <text x="404" y="295">HR</text>
+              </g>
+            </svg>
+          </div>
+
+        </div>
+
+        <!-- RECENT PAYROLL TABLE -->
+        <div class="card p-5">
+          <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+            <div>
+              <h2 class="text-lg font-bold">Recent Payroll Activity</h2>
+              <p class="text-xs" style="color:var(--muted);">Latest payslips processed this cycle</p>
+            </div>
+            <div class="flex items-center gap-2">
+              <div class="relative">
+                <svg class="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+                <input type="text" placeholder="Search" class="pl-9 pr-4 py-2 rounded-full text-sm focus:outline-none ring-soft" style="background:white;" />
+              </div>
+              <button class="ring-soft px-3 py-2 rounded-full text-xs font-semibold flex items-center gap-1.5">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M7 12h10M11 18h2"/></svg>
+                Sort by
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+              </button>
+            </div>
+          </div>
+
+          <div class="overflow-x-auto scroll-hide">
+            <table class="w-full text-sm">
+              <thead>
+                <tr class="text-left" style="color:var(--muted);">
+                  <th class="font-medium pb-3 pl-2"><span class="check"></span></th>
+                  <th class="font-medium pb-3">Employee</th>
+                  <th class="font-medium pb-3">Department</th>
+                  <th class="font-medium pb-3">Pay Period</th>
+                  <th class="font-medium pb-3">Hours</th>
+                  <th class="font-medium pb-3">Status</th>
+                  <th class="font-medium pb-3 text-right pr-2">Net Pay</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr class="table-row border-t" style="border-color:var(--line);">
+                  <td class="py-3 pl-2"><span class="check"></span></td>
+                  <td class="py-3">
+                    <div class="flex items-center gap-3">
+                      <div class="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold avatar-ring" style="background:linear-gradient(135deg,#F25C2D,#F2924A);">OB</div>
+                      <div>
+                        <div class="font-bold">Oliver J. Brown</div>
+                        <div class="text-xs" style="color:var(--muted);">EMP-2041</div>
+                      </div>
+                    </div>
+                  </td>
+                  <td class="py-3 font-medium">Engineering</td>
+                  <td class="py-3" style="color:var(--muted);">Apr 1 — Apr 15</td>
+                  <td class="py-3 font-semibold">88h</td>
+                  <td class="py-3"><span class="pill status-paid">● Paid</span></td>
+                  <td class="py-3 text-right font-bold pr-2">$4,820.00</td>
+                </tr>
+                <tr class="table-row border-t" style="border-color:var(--line);">
+                  <td class="py-3 pl-2"><span class="check"></span></td>
+                  <td class="py-3">
+                    <div class="flex items-center gap-3">
+                      <div class="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold avatar-ring" style="background:linear-gradient(135deg,#2BB673,#46C28B);">NS</div>
+                      <div>
+                        <div class="font-bold">Noah J. Smith</div>
+                        <div class="text-xs" style="color:var(--muted);">EMP-2107</div>
+                      </div>
+                    </div>
+                  </td>
+                  <td class="py-3 font-medium">Design</td>
+                  <td class="py-3" style="color:var(--muted);">Apr 1 — Apr 15</td>
+                  <td class="py-3 font-semibold">80h</td>
+                  <td class="py-3"><span class="pill status-pending">● Pending</span></td>
+                  <td class="py-3 text-right font-bold pr-2">$3,640.00</td>
+                </tr>
+                <tr class="table-row border-t" style="border-color:var(--line);">
+                  <td class="py-3 pl-2"><span class="check"></span></td>
+                  <td class="py-3">
+                    <div class="flex items-center gap-3">
+                      <div class="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold avatar-ring" style="background:linear-gradient(135deg,#6366F1,#8B5CF6);">EW</div>
+                      <div>
+                        <div class="font-bold">Emma Watson</div>
+                        <div class="text-xs" style="color:var(--muted);">EMP-1988</div>
+                      </div>
+                    </div>
+                  </td>
+                  <td class="py-3 font-medium">Marketing</td>
+                  <td class="py-3" style="color:var(--muted);">Apr 1 — Apr 15</td>
+                  <td class="py-3 font-semibold">76h</td>
+                  <td class="py-3"><span class="pill status-paid">● Paid</span></td>
+                  <td class="py-3 text-right font-bold pr-2">$3,220.00</td>
+                </tr>
+                <tr class="table-row border-t" style="border-color:var(--line);">
+                  <td class="py-3 pl-2"><span class="check"></span></td>
+                  <td class="py-3">
+                    <div class="flex items-center gap-3">
+                      <div class="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold avatar-ring" style="background:linear-gradient(135deg,#0EA5E9,#06B6D4);">LR</div>
+                      <div>
+                        <div class="font-bold">Liam Rodriguez</div>
+                        <div class="text-xs" style="color:var(--muted);">EMP-2230</div>
+                      </div>
+                    </div>
+                  </td>
+                  <td class="py-3 font-medium">Sales</td>
+                  <td class="py-3" style="color:var(--muted);">Apr 1 — Apr 15</td>
+                  <td class="py-3 font-semibold">92h</td>
+                  <td class="py-3"><span class="pill status-processing">● Processing</span></td>
+                  <td class="py-3 text-right font-bold pr-2">$5,140.00</td>
+                </tr>
+                <tr class="table-row border-t" style="border-color:var(--line);">
+                  <td class="py-3 pl-2"><span class="check"></span></td>
+                  <td class="py-3">
+                    <div class="flex items-center gap-3">
+                      <div class="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold avatar-ring" style="background:linear-gradient(135deg,#EC4899,#F472B6);">SC</div>
+                      <div>
+                        <div class="font-bold">Sofia Chen</div>
+                        <div class="text-xs" style="color:var(--muted);">EMP-2055</div>
+                      </div>
+                    </div>
+                  </td>
+                  <td class="py-3 font-medium">Operations</td>
+                  <td class="py-3" style="color:var(--muted);">Apr 1 — Apr 15</td>
+                  <td class="py-3 font-semibold">84h</td>
+                  <td class="py-3"><span class="pill status-paid">● Paid</span></td>
+                  <td class="py-3 text-right font-bold pr-2">$3,980.00</td>
+                </tr>
+                <tr class="table-row border-t" style="border-color:var(--line);">
+                  <td class="py-3 pl-2"><span class="check"></span></td>
+                  <td class="py-3">
+                    <div class="flex items-center gap-3">
+                      <div class="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold avatar-ring" style="background:linear-gradient(135deg,#F59E0B,#FBBF24);">JK</div>
+                      <div>
+                        <div class="font-bold">Jacob Kim</div>
+                        <div class="text-xs" style="color:var(--muted);">EMP-2178</div>
+                      </div>
+                    </div>
+                  </td>
+                  <td class="py-3 font-medium">Engineering</td>
+                  <td class="py-3" style="color:var(--muted);">Apr 1 — Apr 15</td>
+                  <td class="py-3 font-semibold">90h</td>
+                  <td class="py-3"><span class="pill status-pending">● Pending</span></td>
+                  <td class="py-3 text-right font-bold pr-2">$4,510.00</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="flex items-center justify-between pt-4 mt-2 border-t" style="border-color:var(--line);">
+            <div class="text-xs" style="color:var(--muted);">Showing <span class="font-bold text-stone-700">6</span> of <span class="font-bold text-stone-700">248</span> employees</div>
+            <div class="flex items-center gap-1">
+              <button class="w-8 h-8 rounded-lg ring-soft flex items-center justify-center text-stone-400">‹</button>
+              <button class="w-8 h-8 rounded-lg text-white text-sm font-bold flex items-center justify-center" style="background:var(--accent);">1</button>
+              <button class="w-8 h-8 rounded-lg ring-soft text-sm font-semibold flex items-center justify-center">2</button>
+              <button class="w-8 h-8 rounded-lg ring-soft text-sm font-semibold flex items-center justify-center">3</button>
+              <button class="w-8 h-8 rounded-lg ring-soft text-sm font-semibold flex items-center justify-center">›</button>
+            </div>
+          </div>
+        </div>
+
+      </main>
+    </div>
+  </div>
+</body>
+</html>
