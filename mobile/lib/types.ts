@@ -3,6 +3,20 @@ export type ScanType = 'in' | 'out';
 export type EventStatus = 'planned' | 'in_progress' | 'completed' | 'cancelled';
 export type AssignmentRole = 'supervisor' | 'employee';
 export type CashAdvanceStatus = 'pending' | 'applied' | 'deferred' | 'cancelled';
+export type ViolationSeverity = 'minor' | 'major' | 'critical';
+
+export type Violation = {
+  id: string;
+  event_id: string | null;
+  phase_id: string | null;
+  reported_by: string;
+  employee_id: string;
+  description: string;
+  severity: ViolationSeverity;
+  resolved: boolean;
+  resolved_at: string | null;
+  created_at: string;
+};
 
 export type CashAdvance = {
   id: string;

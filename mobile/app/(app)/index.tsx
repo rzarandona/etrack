@@ -120,9 +120,14 @@ function EmployeeHome({
         </Pressable>
       </View>
 
-      <Pressable style={styles.advancesLink} onPress={() => router.push('/(app)/advances' as never)}>
-        <Text style={styles.advancesText}>My cash advances ›</Text>
-      </Pressable>
+      <View style={styles.linksRow}>
+        <Pressable style={styles.linkCard} onPress={() => router.push('/(app)/advances' as never)}>
+          <Text style={styles.linkText}>Cash advances ›</Text>
+        </Pressable>
+        <Pressable style={styles.linkCard} onPress={() => router.push('/(app)/violations' as never)}>
+          <Text style={styles.linkText}>Violations ›</Text>
+        </Pressable>
+      </View>
 
       <Text style={styles.sectionTitle}>My events</Text>
 
@@ -371,12 +376,14 @@ const styles = StyleSheet.create({
   eventTitle: { fontSize: 16, fontWeight: '700', flex: 1, marginRight: 8 },
   eventMeta: { fontSize: 12, color: '#64748b' },
   eventPhasesPreview: { fontSize: 12, color: '#475569', marginTop: 4 },
-  advancesLink: {
+  linksRow: { flexDirection: 'row', gap: 10 },
+  linkCard: {
+    flex: 1,
     paddingVertical: 12,
     paddingHorizontal: 14,
     backgroundColor: '#f1f5f9',
     borderRadius: 10,
     alignItems: 'center',
   },
-  advancesText: { color: '#2563eb', fontWeight: '600', fontSize: 14 },
+  linkText: { color: '#2563eb', fontWeight: '600', fontSize: 14 },
 });

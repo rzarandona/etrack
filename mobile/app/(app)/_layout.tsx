@@ -12,6 +12,7 @@ export default function AppLayout() {
       <Stack.Screen name="confirm" options={{ title: 'Confirm scan', presentation: 'modal' }} />
       <Stack.Screen name="pending" options={{ title: 'Pending sync' }} />
       <Stack.Screen name="advances" options={{ title: 'My advances' }} />
+      <Stack.Screen name="violations" options={{ title: 'My violations' }} />
       <Stack.Screen name="event/[id]" options={{ title: 'Event' }} />
       <Stack.Screen
         name="event/[id]/clock-in"

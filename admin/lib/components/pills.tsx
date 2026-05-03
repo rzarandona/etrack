@@ -1,4 +1,9 @@
-import type { CashAdvanceStatus, EventStatus, ScanType } from '@/lib/types';
+import type {
+  CashAdvanceStatus,
+  EventStatus,
+  ScanType,
+  ViolationSeverity,
+} from '@/lib/types';
 
 export function StatusPill({ active }: { active: boolean }) {
   return (
@@ -57,5 +62,31 @@ const ADVANCE_STATUS_LABEL: Record<CashAdvanceStatus, string> = {
 export function CashAdvanceStatusPill({ status }: { status: CashAdvanceStatus }) {
   return (
     <span className={ADVANCE_STATUS_CLASS[status]}>● {ADVANCE_STATUS_LABEL[status]}</span>
+  );
+}
+
+const SEVERITY_CLASS: Record<ViolationSeverity, string> = {
+  minor: 'pill status-processing',
+  major: 'pill status-pending',
+  critical: 'pill status-inactive',
+};
+
+const SEVERITY_LABEL: Record<ViolationSeverity, string> = {
+  minor: 'Minor',
+  major: 'Major',
+  critical: 'Critical',
+};
+
+export function ViolationSeverityPill({ severity }: { severity: ViolationSeverity }) {
+  return (
+    <span className={SEVERITY_CLASS[severity]}>● {SEVERITY_LABEL[severity]}</span>
+  );
+}
+
+export function ResolutionPill({ resolved }: { resolved: boolean }) {
+  return (
+    <span className={resolved ? 'pill status-active' : 'pill status-pending'}>
+      ● {resolved ? 'Resolved' : 'Open'}
+    </span>
   );
 }
