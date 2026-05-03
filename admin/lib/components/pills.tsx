@@ -1,4 +1,4 @@
-import type { EventStatus, ScanType } from '@/lib/types';
+import type { CashAdvanceStatus, EventStatus, ScanType } from '@/lib/types';
 
 export function StatusPill({ active }: { active: boolean }) {
   return (
@@ -37,5 +37,25 @@ const EVENT_STATUS_LABEL: Record<EventStatus, string> = {
 export function EventStatusPill({ status }: { status: EventStatus }) {
   return (
     <span className={EVENT_STATUS_CLASS[status]}>● {EVENT_STATUS_LABEL[status]}</span>
+  );
+}
+
+const ADVANCE_STATUS_CLASS: Record<CashAdvanceStatus, string> = {
+  pending: 'pill status-pending',
+  applied: 'pill status-active',
+  deferred: 'pill status-processing',
+  cancelled: 'pill status-inactive',
+};
+
+const ADVANCE_STATUS_LABEL: Record<CashAdvanceStatus, string> = {
+  pending: 'Pending',
+  applied: 'Applied',
+  deferred: 'Deferred',
+  cancelled: 'Cancelled',
+};
+
+export function CashAdvanceStatusPill({ status }: { status: CashAdvanceStatus }) {
+  return (
+    <span className={ADVANCE_STATUS_CLASS[status]}>● {ADVANCE_STATUS_LABEL[status]}</span>
   );
 }

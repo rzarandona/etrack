@@ -2,6 +2,18 @@ export type Role = 'admin' | 'supervisor' | 'employee' | 'pending';
 export type ScanType = 'in' | 'out';
 export type EventStatus = 'planned' | 'in_progress' | 'completed' | 'cancelled';
 export type AssignmentRole = 'supervisor' | 'employee';
+export type CashAdvanceStatus = 'pending' | 'applied' | 'deferred' | 'cancelled';
+
+export type CashAdvance = {
+  id: string;
+  user_id: string;
+  amount: string;
+  advance_date: string;
+  notes: string | null;
+  status: CashAdvanceStatus;
+  applied_event_id: string | null;
+  created_at: string;
+};
 
 /**
  * The canonical user record. `id` is an internal UUID; `auth_user_id` is the

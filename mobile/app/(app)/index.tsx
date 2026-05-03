@@ -120,6 +120,10 @@ function EmployeeHome({
         </Pressable>
       </View>
 
+      <Pressable style={styles.advancesLink} onPress={() => router.push('/(app)/advances' as never)}>
+        <Text style={styles.advancesText}>My cash advances ›</Text>
+      </Pressable>
+
       <Text style={styles.sectionTitle}>My events</Text>
 
       {loading ? (
@@ -367,4 +371,12 @@ const styles = StyleSheet.create({
   eventTitle: { fontSize: 16, fontWeight: '700', flex: 1, marginRight: 8 },
   eventMeta: { fontSize: 12, color: '#64748b' },
   eventPhasesPreview: { fontSize: 12, color: '#475569', marginTop: 4 },
+  advancesLink: {
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    backgroundColor: '#f1f5f9',
+    borderRadius: 10,
+    alignItems: 'center',
+  },
+  advancesText: { color: '#2563eb', fontWeight: '600', fontSize: 14 },
 });
