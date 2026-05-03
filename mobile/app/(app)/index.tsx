@@ -3,8 +3,10 @@ import { useCallback, useState } from 'react';
 import { Alert, FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useAuth } from '@/lib/auth';
 import { getDirectoryStatus, refreshDirectory, type DirectoryStatus } from '@/lib/directory';
+import { getMyEmployee } from '@/lib/employee';
 import { flush, pendingCount } from '@/lib/queue';
 import { supabase } from '@/lib/supabase';
+import type { Employee, EventStatus } from '@/lib/types';
 
 function relativeTime(date: Date | null): string {
   if (!date) return 'never';
@@ -17,6 +19,166 @@ function relativeTime(date: Date | null): string {
   return `${Math.round(hr / 24)}d ago`;
 }
 
+export default function Home() {
+  const { profile, signOut } = useAuth();
+
+  if (!profile) return null;
+
+  if (profile.role === 'pending') {
+    return <PendingHome onSignOut={signOut} fullName={profile.full_name} />;
+  }
+
+  if (profile.role === 'employee') {
+    return <EmployeeHome profileId={profile.id} fullName={profile.full_name} onSignOut={signOut} />;
+  }
+
+  // admin or supervisor
+  return <SupervisorHome />;
+}
+
+// ============================================================
+// Pending — awaiting admin approval
+// ============================================================
+function PendingHome({ fullName, onSignOut }: { fullName: string; onSignOut: () => void }) {
+  return (
+    <View style={styles.center}>
+      <Text style={styles.bigTitle}>Awaiting approval</Text>
+      <Text style={styles.muted}>
+        Hi {fullName}, your account is pending admin approval. You&apos;ll get full access once your
+        admin promotes you to an employee or supervisor role.
+      </Text>
+      <Pressable style={styles.signOutBtn} onPress={onSignOut}>
+        <Text style={styles.signOutText}>Sign out</Text>
+      </Pressable>
+    </View>
+  );
+}
+
+// ============================================================
+// Employee — see assigned events, tap to clock in/out per phase
+// ============================================================
+type EventRow = {
+  id: string;
+  title: string;
+  venue: string | null;
+  starts_at: string;
+  ends_at: string | null;
+  status: EventStatus;
+  event_phases: { id: string; name: string; ord: number }[] | null;
+};
+
+function EmployeeHome({
+  profileId,
+  fullName,
+  onSignOut,
+}: {
+  profileId: string;
+  fullName: string;
+  onSignOut: () => void;
+}) {
+  const router = useRouter();
+  const [employee, setEmployee] = useState<Employee | null>(null);
+  const [events, setEvents] = useState<EventRow[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const refresh = useCallback(async () => {
+    setLoading(true);
+    const me = await getMyEmployee(profileId);
+    setEmployee(me);
+
+    // RLS already restricts events to those the user is assigned to.
+    // Show events from yesterday onwards so completed events stay visible briefly.
+    const since = new Date();
+    since.setDate(since.getDate() - 1);
+    since.setHours(0, 0, 0, 0);
+
+    const { data } = await supabase
+      .from('events')
+      .select('id, title, venue, starts_at, ends_at, status, event_phases(id, name, ord)')
+      .gte('starts_at', since.toISOString())
+      .neq('status', 'cancelled')
+      .order('starts_at', { ascending: true });
+    setEvents((data as unknown as EventRow[]) ?? []);
+    setLoading(false);
+  }, [profileId]);
+
+  useFocusEffect(
+    useCallback(() => {
+      refresh();
+    }, [refresh])
+  );
+
+  return (
+    <View style={styles.root}>
+      <View style={styles.header}>
+        <View>
+          <Text style={styles.hello}>Hi, {fullName}</Text>
+          {employee && <Text style={styles.role}>{employee.employee_code}</Text>}
+        </View>
+        <Pressable onPress={onSignOut}>
+          <Text style={styles.logout}>Sign out</Text>
+        </Pressable>
+      </View>
+
+      <Text style={styles.sectionTitle}>My events</Text>
+
+      {loading ? (
+        <Text style={styles.empty}>Loading…</Text>
+      ) : events.length === 0 ? (
+        <Text style={styles.empty}>No events assigned to you yet.</Text>
+      ) : (
+        <FlatList
+          data={events}
+          keyExtractor={(e) => e.id}
+          ItemSeparatorComponent={() => <View style={{ height: 10 }} />}
+          renderItem={({ item }) => (
+            <Pressable
+              style={styles.eventCard}
+              onPress={() => router.push(`/(app)/event/${item.id}` as never)}>
+              <View style={styles.eventTopRow}>
+                <Text style={styles.eventTitle}>{item.title}</Text>
+                <EventStatusBadge status={item.status} />
+              </View>
+              <Text style={styles.eventMeta}>
+                {new Date(item.starts_at).toLocaleString()}
+                {item.ends_at && ` → ${new Date(item.ends_at).toLocaleString()}`}
+              </Text>
+              {item.venue && <Text style={styles.eventMeta}>📍 {item.venue}</Text>}
+              {item.event_phases && item.event_phases.length > 0 && (
+                <Text style={styles.eventPhasesPreview}>
+                  {item.event_phases.length} phase{item.event_phases.length === 1 ? '' : 's'}: {' '}
+                  {item.event_phases
+                    .sort((a, b) => a.ord - b.ord)
+                    .map((p) => p.name)
+                    .join(' · ')}
+                </Text>
+              )}
+            </Pressable>
+          )}
+        />
+      )}
+    </View>
+  );
+}
+
+function EventStatusBadge({ status }: { status: EventStatus }) {
+  const palette: Record<EventStatus, { bg: string; fg: string; label: string }> = {
+    planned: { bg: '#fef3c7', fg: '#a16207', label: 'PLANNED' },
+    in_progress: { bg: '#dcfce7', fg: '#166534', label: 'LIVE' },
+    completed: { bg: '#e2e8f0', fg: '#475569', label: 'DONE' },
+    cancelled: { bg: '#fee2e2', fg: '#991b1b', label: 'CANCELLED' },
+  };
+  const p = palette[status];
+  return (
+    <Text style={{ backgroundColor: p.bg, color: p.fg, paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6, fontSize: 10, fontWeight: '700' }}>
+      {p.label}
+    </Text>
+  );
+}
+
+// ============================================================
+// Supervisor / Admin — existing scan flow
+// ============================================================
 type RecentScan = {
   id: string;
   scan_type: 'in' | 'out';
@@ -24,9 +186,9 @@ type RecentScan = {
   employee: { full_name: string; employee_code: string } | null;
 };
 
-export default function Home() {
+function SupervisorHome() {
   const router = useRouter();
-  const { profile, signOut, session } = useAuth();
+  const { profile, signOut } = useAuth();
   const [pending, setPending] = useState(0);
   const [recent, setRecent] = useState<RecentScan[]>([]);
   const [todayCount, setTodayCount] = useState(0);
@@ -40,10 +202,11 @@ export default function Home() {
     setPending(await pendingCount());
     setDirectory(await getDirectoryStatus());
 
-    // Best-effort refresh of the offline directory; silently no-ops when offline.
-    refreshDirectory().then(async (ok) => {
-      if (ok) setDirectory(await getDirectoryStatus());
-    });
+    if (profile) {
+      refreshDirectory(profile.role, profile.id).then(async (ok) => {
+        if (ok) setDirectory(await getDirectoryStatus());
+      });
+    }
 
     const startOfDay = new Date();
     startOfDay.setHours(0, 0, 0, 0);
@@ -60,7 +223,7 @@ export default function Home() {
       .order('server_timestamp', { ascending: false })
       .limit(10);
     setRecent((data as unknown as RecentScan[]) ?? []);
-  }, []);
+  }, [profile]);
 
   useFocusEffect(
     useCallback(() => {
@@ -69,10 +232,10 @@ export default function Home() {
   );
 
   const onSync = async () => {
-    if (!session) return;
+    if (!profile) return;
     setSyncing(true);
     try {
-      const synced = await flush(session.user.id);
+      const synced = await flush(profile.id);
       await refresh();
       Alert.alert('Sync complete', `${synced} scan(s) uploaded.`);
     } catch (e) {
@@ -153,6 +316,11 @@ export default function Home() {
 
 const styles = StyleSheet.create({
   root: { flex: 1, padding: 16, gap: 12 },
+  center: { flex: 1, padding: 24, justifyContent: 'center', alignItems: 'center', gap: 16 },
+  bigTitle: { fontSize: 24, fontWeight: '700', textAlign: 'center' },
+  muted: { color: '#64748b', textAlign: 'center', fontSize: 14, lineHeight: 20 },
+  signOutBtn: { paddingHorizontal: 20, paddingVertical: 10, borderWidth: 1, borderColor: '#cbd5e1', borderRadius: 10, marginTop: 12 },
+  signOutText: { color: '#475569', fontWeight: '600' },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   hello: { fontSize: 18, fontWeight: '600' },
   role: { color: '#64748b', fontSize: 12, textTransform: 'uppercase', letterSpacing: 1 },
@@ -187,4 +355,16 @@ const styles = StyleSheet.create({
   badgeIn: { backgroundColor: '#dcfce7', color: '#166534' },
   badgeOut: { backgroundColor: '#fee2e2', color: '#991b1b' },
   empty: { color: '#94a3b8', textAlign: 'center', paddingVertical: 20 },
+  eventCard: {
+    padding: 14,
+    backgroundColor: '#f8fafc',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    gap: 4,
+  },
+  eventTopRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  eventTitle: { fontSize: 16, fontWeight: '700', flex: 1, marginRight: 8 },
+  eventMeta: { fontSize: 12, color: '#64748b' },
+  eventPhasesPreview: { fontSize: 12, color: '#475569', marginTop: 4 },
 });

@@ -36,28 +36,31 @@ function loadNetInfo(): NetInfoModule | null {
  * hook becomes a no-op and the user can still sync manually.
  */
 export function useAutoSync() {
-  const { session } = useAuth();
+  const { session, profile } = useAuth();
   const wasOnline = useRef<boolean | null>(null);
   const flushing = useRef(false);
 
   useEffect(() => {
-    if (!session) return;
-    const supervisorId = session.user.id;
+    if (!session || !profile) return;
+    const actorId = profile.id;
 
     const NetInfo = loadNetInfo();
     if (!NetInfo) return; // older dev client without the native module — skip
 
     const onOnline = async () => {
-      // Refresh the offline directory cache so future offline scans can
-      // resolve employee names and the site picker without a connection.
-      refreshDirectory().catch(() => {});
+      // Refresh the offline directory cache. For supervisors this scopes to
+      // employees on assigned events; admins get the full roster; employees
+      // and pending users skip (no directory needed).
+      if (profile) {
+        refreshDirectory(profile.role, profile.id).catch(() => {});
+      }
 
       if (flushing.current) return;
       const n = await pendingCount();
       if (n === 0) return;
       flushing.current = true;
       try {
-        await flush(supervisorId);
+        await flush(actorId);
       } catch {
         // swallow — flush() already re-queues failures with the error message
       } finally {
@@ -87,5 +90,5 @@ export function useAutoSync() {
     }
 
     return () => unsub?.();
-  }, [session?.user.id]);
+  }, [session?.user.id, profile?.id, profile?.role]);
 }

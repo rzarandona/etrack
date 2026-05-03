@@ -10,13 +10,12 @@ import {
   Image,
   Platform,
   Pressable,
-  ScrollView,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
 import { useAuth } from '@/lib/auth';
-import { getCachedEmployee } from '@/lib/directory';
+import { getMyEmployee } from '@/lib/employee';
 import { enqueue, flush } from '@/lib/queue';
 import { supabase } from '@/lib/supabase';
 import type { Employee, EventPhase, EventRecord, ScanType } from '@/lib/types';
@@ -31,30 +30,31 @@ async function ensurePhotoDir() {
   }
 }
 
-export default function Confirm() {
-  const { employeeId } = useLocalSearchParams<{ employeeId: string }>();
+/**
+ * Employee selfie clock-in / clock-out for a specific (event, phase) pair.
+ * Selfie photo is captured with the FRONT camera to verify identity.
+ */
+export default function EmployeeClockIn() {
+  const params = useLocalSearchParams<{ id: string; phase: string; type: string }>();
   const router = useRouter();
   const { profile } = useAuth();
   const [cameraPerm, requestCameraPerm] = useCameraPermissions();
 
+  const eventId = params.id;
+  const phaseId = params.phase;
+  const scanType: ScanType = params.type === 'out' ? 'out' : 'in';
+
+  const [event, setEvent] = useState<EventRecord | null>(null);
+  const [phase, setPhase] = useState<EventPhase | null>(null);
   const [employee, setEmployee] = useState<Employee | null>(null);
   const [coords, setCoords] = useState<Location.LocationObject | null>(null);
-  const [scanType, setScanType] = useState<ScanType>('in');
-  const [scanTypeUnknown, setScanTypeUnknown] = useState(true);
   const [loading, setLoading] = useState(true);
-  const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  // Event + phase scoping (Phase 3). RLS restricts `events` to those the
-  // signed-in supervisor is assigned to — rendered in this picker.
-  const [events, setEvents] = useState<EventRecord[]>([]);
-  const [phasesByEvent, setPhasesByEvent] = useState<Record<string, EventPhase[]>>({});
-  const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
-  const [selectedPhaseId, setSelectedPhaseId] = useState<string | null>(null);
 
   const [photoUri, setPhotoUri] = useState<string | null>(null);
   const [showCamera, setShowCamera] = useState(false);
   const [capturing, setCapturing] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
   const cameraRef = useRef<CameraView | null>(null);
   const wasSubmittedRef = useRef(false);
 
@@ -62,84 +62,25 @@ export default function Confirm() {
     let cancelled = false;
     (async () => {
       try {
-        let emp = await getCachedEmployee(employeeId);
-        if (!emp) {
-          const { data, error: empErr } = await supabase
-            .from('employees')
-            .select('*')
-            .eq('id', employeeId)
-            .eq('active', true)
-            .single();
-          if (empErr || !data) {
-            throw new Error(
-              'Employee not found in offline cache. Connect to the internet on the home screen to refresh the directory, then try again.'
-            );
-          }
-          emp = data as Employee;
-        }
+        if (!profile) throw new Error('Not signed in.');
+
+        const me = await getMyEmployee(profile.id);
+        if (!me) throw new Error('Your account is not linked to an employee record.');
         if (cancelled) return;
-        setEmployee(emp);
+        setEmployee(me);
 
-        try {
-          const startOfDay = new Date();
-          startOfDay.setHours(0, 0, 0, 0);
-          const { data: last, error: lastErr } = await supabase
-            .from('scans')
-            .select('scan_type')
-            .eq('employee_id', employeeId)
-            .gte('server_timestamp', startOfDay.toISOString())
-            .order('server_timestamp', { ascending: false })
-            .limit(1)
-            .maybeSingle();
-          if (lastErr) throw lastErr;
-          if (!cancelled) {
-            setScanType(last?.scan_type === 'in' ? 'out' : 'in');
-            setScanTypeUnknown(false);
-          }
-        } catch {
-          // offline or query failed — keep the default 'in' but flag it as
-          // unverified so the supervisor knows to double-check the toggle.
-          if (!cancelled) setScanTypeUnknown(true);
-        }
-
-        // Fetch supervisor's assigned events + their phases. RLS scopes this
-        // to events where the caller has an event_assignments row.
-        try {
-          const yesterday = new Date();
-          yesterday.setDate(yesterday.getDate() - 1);
-          yesterday.setHours(0, 0, 0, 0);
-          const { data: evs } = await supabase
-            .from('events')
-            .select('id, title, venue, venue_latitude, venue_longitude, starts_at, ends_at, status, event_phases(id, event_id, name, ord, starts_at, ends_at, pay_rate, notes, created_at)')
-            .gte('starts_at', yesterday.toISOString())
-            .neq('status', 'cancelled')
-            .order('starts_at', { ascending: true });
-          if (!cancelled && evs) {
-            const evList: EventRecord[] = [];
-            const phMap: Record<string, EventPhase[]> = {};
-            for (const e of evs as unknown as (EventRecord & { event_phases: EventPhase[] })[]) {
-              evList.push(e);
-              phMap[e.id] = (e.event_phases ?? []).sort((a, b) => a.ord - b.ord);
-            }
-            setEvents(evList);
-            setPhasesByEvent(phMap);
-
-            // Auto-pick: prefer an in_progress event; else the soonest upcoming.
-            const live = evList.find((e) => e.status === 'in_progress');
-            const pick = live ?? evList[0];
-            if (pick) {
-              setSelectedEventId(pick.id);
-              const firstPhase = phMap[pick.id]?.[0];
-              if (firstPhase) setSelectedPhaseId(firstPhase.id);
-            }
-          }
-        } catch {
-          // offline — leave empty; supervisor can still submit unscoped (legacy).
-        }
+        const [{ data: ev }, { data: ph }] = await Promise.all([
+          supabase.from('events').select('*').eq('id', eventId).single(),
+          supabase.from('event_phases').select('*').eq('id', phaseId).single(),
+        ]);
+        if (!ev || !ph) throw new Error('Event or phase not found.');
+        if (cancelled) return;
+        setEvent(ev as EventRecord);
+        setPhase(ph as EventPhase);
 
         const perm = await Location.requestForegroundPermissionsAsync();
         if (perm.status !== 'granted') {
-          throw new Error('Location permission denied. Enable location to record scans.');
+          throw new Error('Location permission denied. Enable location to clock in.');
         }
         const pos = await Location.getCurrentPositionAsync({
           accuracy: Location.Accuracy.High,
@@ -154,8 +95,9 @@ export default function Confirm() {
     return () => {
       cancelled = true;
     };
-  }, [employeeId]);
+  }, [eventId, phaseId, profile]);
 
+  // Clean up an unsaved photo on unmount.
   useEffect(() => {
     return () => {
       if (photoUri && !wasSubmittedRef.current) {
@@ -184,7 +126,7 @@ export default function Confirm() {
         }
         Alert.alert(
           'Camera blocked',
-          'Enable camera access in Settings to take a verification photo.',
+          'Enable camera access in Settings to take a selfie verification photo.',
           buttons
         );
         return;
@@ -222,7 +164,7 @@ export default function Confirm() {
   };
 
   const onSubmit = async () => {
-    if (!employee || !coords || !profile) return;
+    if (!employee || !coords || !profile || !event || !phase) return;
     if (blockReason) {
       Alert.alert('Cannot submit', blockReason);
       return;
@@ -232,15 +174,15 @@ export default function Confirm() {
       await enqueue({
         client_scan_id: uuidv4(),
         employee_id: employee.id,
-        event_id: selectedEventId,
-        phase_id: selectedPhaseId,
+        event_id: event.id,
+        phase_id: phase.id,
         scan_type: scanType,
         device_timestamp: new Date().toISOString(),
         latitude: coords.coords.latitude,
         longitude: coords.coords.longitude,
         accuracy_m: coords.coords.accuracy ?? null,
         is_mock_location: coords.mocked === true,
-        self_clocked: false,
+        self_clocked: true,
         local_photo_uri: photoUri,
         queued_at: new Date().toISOString(),
         attempts: 0,
@@ -249,12 +191,12 @@ export default function Confirm() {
       wasSubmittedRef.current = true;
       const synced = await flush(profile.id);
       Alert.alert(
-        'Scan recorded',
+        scanType === 'in' ? 'Clocked in' : 'Clocked out',
         synced > 0
-          ? `${employee.full_name} clocked ${scanType.toUpperCase()}.`
-          : `${employee.full_name}: queued offline, will sync later.`
+          ? `${event.title} · ${phase.name}`
+          : 'Queued offline — will sync when online.'
       );
-      router.replace('/(app)');
+      router.replace(`/(app)/event/${event.id}` as never);
     } catch (e) {
       Alert.alert('Failed', (e as Error).message);
     } finally {
@@ -266,7 +208,7 @@ export default function Confirm() {
     return (
       <View style={styles.center}>
         <ActivityIndicator />
-        <Text style={{ marginTop: 12 }}>Loading badge & GPS…</Text>
+        <Text style={{ marginTop: 12 }}>Preparing…</Text>
       </View>
     );
   }
@@ -282,12 +224,12 @@ export default function Confirm() {
     );
   }
 
-  if (!employee || !coords) return null;
+  if (!event || !phase || !employee || !coords) return null;
 
   if (showCamera) {
     return (
       <View style={styles.cameraRoot}>
-        <CameraView ref={cameraRef} style={StyleSheet.absoluteFill} facing="back" />
+        <CameraView ref={cameraRef} style={StyleSheet.absoluteFill} facing="front" />
         <View style={styles.cameraControls}>
           <Pressable style={styles.cameraCancel} onPress={() => setShowCamera(false)}>
             <Text style={styles.cameraCancelText}>Cancel</Text>
@@ -301,90 +243,16 @@ export default function Confirm() {
     );
   }
 
-  const submitDisabled = submitting || blockReason !== null;
+  const submitDisabled = submitting || blockReason !== null || !photoUri;
 
   return (
-    <ScrollView contentContainerStyle={styles.root}>
-      <Text style={styles.empName}>{employee.full_name}</Text>
-      <Text style={styles.empCode}>{employee.employee_code}</Text>
-
-      <View style={styles.toggleRow}>
-        {(['in', 'out'] as const).map((t) => (
-          <Pressable
-            key={t}
-            style={[styles.toggle, scanType === t && (t === 'in' ? styles.toggleIn : styles.toggleOut)]}
-            onPress={() => setScanType(t)}>
-            <Text style={[styles.toggleText, scanType === t && styles.toggleTextActive]}>
-              {t === 'in' ? 'CLOCK IN' : 'CLOCK OUT'}
-            </Text>
-          </Pressable>
-        ))}
-      </View>
-
-      {scanTypeUnknown && (
-        <View style={styles.warnBanner}>
-          <Text style={styles.warnText}>
-            Couldn&apos;t check today&apos;s scans (offline?). Verify In/Out manually before submit.
-          </Text>
-        </View>
-      )}
-
-      <View style={styles.section}>
-        <Text style={styles.label}>Event & phase</Text>
-        {events.length === 0 ? (
-          <Text style={styles.meta}>
-            No assigned events found. Submitting unscoped — admin can attach the event later.
-          </Text>
-        ) : (
-          <>
-            <View style={styles.pillRow}>
-              {events.map((e) => (
-                <Pressable
-                  key={e.id}
-                  onPress={() => {
-                    setSelectedEventId(e.id);
-                    const first = phasesByEvent[e.id]?.[0];
-                    setSelectedPhaseId(first ? first.id : null);
-                  }}
-                  style={[
-                    styles.pill,
-                    selectedEventId === e.id && styles.pillActive,
-                  ]}>
-                  <Text
-                    style={[
-                      styles.pillText,
-                      selectedEventId === e.id && styles.pillTextActive,
-                    ]}
-                    numberOfLines={1}>
-                    {e.title}
-                  </Text>
-                </Pressable>
-              ))}
-            </View>
-            {selectedEventId && (phasesByEvent[selectedEventId]?.length ?? 0) > 0 && (
-              <View style={[styles.pillRow, { marginTop: 6 }]}>
-                {phasesByEvent[selectedEventId].map((p) => (
-                  <Pressable
-                    key={p.id}
-                    onPress={() => setSelectedPhaseId(p.id)}
-                    style={[
-                      styles.pillSm,
-                      selectedPhaseId === p.id && styles.pillSmActive,
-                    ]}>
-                    <Text
-                      style={[
-                        styles.pillSmText,
-                        selectedPhaseId === p.id && styles.pillSmTextActive,
-                      ]}>
-                      {p.ord}. {p.name}
-                    </Text>
-                  </Pressable>
-                ))}
-              </View>
-            )}
-          </>
-        )}
-      </View>
+    <View style={styles.root}>
+      <Text style={styles.title}>
+        {scanType === 'in' ? 'Clock In' : 'Clock Out'}
+      </Text>
+      <Text style={styles.subtitle}>
+        {event.title} · {phase.name}
+      </Text>
 
       <View style={styles.section}>
         <Text style={styles.label}>Location</Text>
@@ -395,7 +263,7 @@ export default function Confirm() {
       </View>
 
       <View style={styles.section}>
-        <Text style={styles.label}>Verification photo (optional)</Text>
+        <Text style={styles.label}>Selfie verification photo</Text>
         {photoUri ? (
           <View style={styles.photoPreviewRow}>
             <Image source={{ uri: photoUri }} style={styles.photoThumb} />
@@ -410,7 +278,7 @@ export default function Confirm() {
           </View>
         ) : (
           <Pressable style={styles.photoCta} onPress={openCamera}>
-            <Text style={styles.photoCtaText}>Take photo of employee</Text>
+            <Text style={styles.photoCtaText}>📷 Take a selfie</Text>
           </Pressable>
         )}
       </View>
@@ -422,55 +290,49 @@ export default function Confirm() {
       )}
 
       <Pressable
-        style={[styles.submit, submitDisabled && styles.submitDisabled]}
+        style={[
+          styles.submit,
+          scanType === 'in' ? styles.submitIn : styles.submitOut,
+          submitDisabled && styles.submitDisabled,
+        ]}
         onPress={onSubmit}
         disabled={submitDisabled}>
         {submitting ? (
           <ActivityIndicator color="#fff" />
         ) : (
-          <Text style={styles.submitText}>Submit {scanType.toUpperCase()}</Text>
+          <Text style={styles.submitText}>
+            Submit {scanType === 'in' ? 'CLOCK IN' : 'CLOCK OUT'}
+          </Text>
         )}
       </Pressable>
 
       <Pressable style={styles.cancel} onPress={() => router.back()}>
         <Text style={styles.cancelText}>Cancel</Text>
       </Pressable>
-    </ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  root: { padding: 20, gap: 16 },
+  root: { flex: 1, padding: 20, gap: 14 },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24, gap: 16 },
   error: { color: '#dc2626', fontSize: 16, textAlign: 'center' },
-  empName: { fontSize: 28, fontWeight: '700' },
-  empCode: { fontSize: 14, color: '#64748b' },
-  toggleRow: { flexDirection: 'row', gap: 10, marginTop: 8 },
-  toggle: {
-    flex: 1,
-    paddingVertical: 18,
-    borderRadius: 12,
-    backgroundColor: '#e2e8f0',
-    alignItems: 'center',
-  },
-  toggleIn: { backgroundColor: '#16a34a' },
-  toggleOut: { backgroundColor: '#dc2626' },
-  toggleText: { fontWeight: '700', color: '#475569', letterSpacing: 0.5 },
-  toggleTextActive: { color: '#fff' },
+  title: { fontSize: 24, fontWeight: '700' },
+  subtitle: { fontSize: 14, color: '#64748b' },
   section: { gap: 4 },
   label: { fontSize: 12, color: '#64748b', textTransform: 'uppercase', letterSpacing: 1 },
   value: { fontSize: 16, fontWeight: '500' },
   meta: { fontSize: 12, color: '#64748b' },
   photoCta: {
     backgroundColor: '#f1f5f9',
-    paddingVertical: 14,
+    paddingVertical: 18,
     borderRadius: 10,
     alignItems: 'center',
     borderWidth: 1,
     borderStyle: 'dashed',
     borderColor: '#cbd5e1',
   },
-  photoCtaText: { color: '#475569', fontWeight: '500' },
+  photoCtaText: { color: '#475569', fontWeight: '600', fontSize: 16 },
   photoPreviewRow: { flexDirection: 'row', gap: 12, alignItems: 'center', marginTop: 4 },
   photoThumb: { width: 96, height: 96, borderRadius: 10, backgroundColor: '#000' },
   photoBtn: {
@@ -490,43 +352,11 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   blockText: { color: '#991b1b', fontWeight: '500', fontSize: 14, lineHeight: 20 },
-  warnBanner: {
-    backgroundColor: '#fef3c7',
-    borderLeftWidth: 4,
-    borderLeftColor: '#d97706',
-    padding: 10,
-    borderRadius: 8,
-  },
-  warnText: { color: '#92400e', fontSize: 13, lineHeight: 18 },
-  pillRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  pill: {
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 18,
-    backgroundColor: '#f1f5f9',
-    maxWidth: '100%',
-  },
-  pillActive: { backgroundColor: '#2563eb' },
-  pillText: { color: '#475569', fontWeight: '600', fontSize: 13 },
-  pillTextActive: { color: '#fff' },
-  pillSm: {
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 14,
-    backgroundColor: '#e2e8f0',
-  },
-  pillSmActive: { backgroundColor: '#0f172a' },
-  pillSmText: { color: '#475569', fontSize: 12, fontWeight: '600' },
-  pillSmTextActive: { color: '#fff' },
-  submit: {
-    marginTop: 4,
-    backgroundColor: '#0f172a',
-    paddingVertical: 18,
-    borderRadius: 12,
-    alignItems: 'center',
-  },
+  submit: { paddingVertical: 18, borderRadius: 12, alignItems: 'center' },
+  submitIn: { backgroundColor: '#16a34a' },
+  submitOut: { backgroundColor: '#dc2626' },
   submitDisabled: { backgroundColor: '#94a3b8' },
-  submitText: { color: '#fff', fontSize: 18, fontWeight: '700' },
+  submitText: { color: '#fff', fontSize: 18, fontWeight: '700', letterSpacing: 0.5 },
   cancel: { paddingVertical: 12, alignItems: 'center' },
   cancelText: { color: '#64748b', fontSize: 14 },
   btn: { backgroundColor: '#2563eb', paddingHorizontal: 24, paddingVertical: 12, borderRadius: 10 },

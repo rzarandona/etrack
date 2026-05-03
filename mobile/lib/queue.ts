@@ -74,9 +74,14 @@ function isDuplicateStorageError(err: unknown): boolean {
 }
 
 /**
- * Upload a local photo to scan-photos at {supervisorId}/{clientScanId}.jpg.
+ * Upload a local photo to scan-photos at {authUid}/{clientScanId}.jpg.
  * Returns the storage path on success. Treats duplicate-key as success
  * (idempotent on retry: the same client_scan_id gives the same path).
+ *
+ * The path is keyed on auth.uid() because the storage RLS policy compares
+ * `(storage.foldername(name))[1] = auth.uid()::text`. Don't change the key
+ * to user_profiles.id — Storage's RLS context can't reliably resolve the
+ * SECURITY DEFINER helper that would translate one to the other.
  *
  * On React Native, `fetch(file://).blob()` produces a Blob that supabase-js
  * cannot actually read — uploads silently fail. Read the file as base64 via
@@ -91,10 +96,10 @@ function base64ToBytes(b64: string): Uint8Array {
 
 async function uploadPhoto(
   localUri: string,
-  supervisorId: string,
+  authUid: string,
   clientScanId: string
 ): Promise<string> {
-  const path = `${supervisorId}/${clientScanId}.jpg`;
+  const path = `${authUid}/${clientScanId}.jpg`;
 
   const base64 = await FileSystem.readAsStringAsync(localUri, {
     encoding: FileSystem.EncodingType.Base64,
@@ -116,10 +121,20 @@ async function uploadPhoto(
  * upload the photo first (idempotent on retry), then insert the scan row,
  * then delete the local file. Server enforces idempotency on the scan via
  * client_scan_id (unique), so partial-success retries converge.
+ *
+ * `actorProfileId` is the user_profiles.id of the actor, used as
+ * scans.supervisor_id (FK to user_profiles). The photo bucket path is keyed
+ * by auth.uid() instead — Supabase Storage's RLS context can't resolve
+ * cross-schema SECURITY DEFINER helpers reliably, so we keep the path on the
+ * one identifier its policy can compare directly.
  */
-export async function flush(supervisorId: string): Promise<number> {
+export async function flush(actorProfileId: string): Promise<number> {
   const all = await readAll();
   if (all.length === 0) return 0;
+
+  const { data: sessionData } = await supabase.auth.getSession();
+  const authUid = sessionData.session?.user.id;
+  if (!authUid) return 0;
 
   const remaining: PendingScan[] = [];
   let synced = 0;
@@ -129,12 +144,12 @@ export async function flush(supervisorId: string): Promise<number> {
       let photoPath: string | null = null;
 
       if (s.local_photo_uri) {
-        photoPath = await uploadPhoto(s.local_photo_uri, supervisorId, s.client_scan_id);
+        photoPath = await uploadPhoto(s.local_photo_uri, authUid, s.client_scan_id);
       }
 
       const { error } = await supabase.from('scans').insert({
         employee_id: s.employee_id,
-        supervisor_id: supervisorId,
+        supervisor_id: actorProfileId,
         event_id: s.event_id,
         phase_id: s.phase_id,
         scan_type: s.scan_type,

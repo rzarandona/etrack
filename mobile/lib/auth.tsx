@@ -35,12 +35,40 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setProfile(null);
       return;
     }
-    supabase
-      .from('user_profiles')
-      .select('*')
-      .eq('auth_user_id', session.user.id)
-      .single()
-      .then(({ data }) => setProfile((data as UserProfile) ?? null));
+    let cancelled = false;
+    (async () => {
+      const { data: existing } = await supabase
+        .from('user_profiles')
+        .select('*')
+        .eq('auth_user_id', session.user.id)
+        .maybeSingle();
+      if (cancelled) return;
+      if (existing) {
+        setProfile(existing as UserProfile);
+        return;
+      }
+      // First sign-in after email-confirm signup: no profile row yet.
+      // Create a pending row so the home screen can route to "Awaiting approval".
+      const fullName =
+        (session.user.user_metadata?.full_name as string | undefined)?.trim() ||
+        session.user.email ||
+        'New user';
+      const { data: created } = await supabase
+        .from('user_profiles')
+        .insert({
+          auth_user_id: session.user.id,
+          full_name: fullName,
+          role: 'pending',
+          active: true,
+        })
+        .select('*')
+        .single();
+      if (cancelled) return;
+      setProfile((created as UserProfile) ?? null);
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, [session?.user?.id]);
 
   const value: AuthState = {

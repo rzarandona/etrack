@@ -1,3 +1,4 @@
+import { Link } from 'expo-router';
 import { useState } from 'react';
 import {
   ActivityIndicator,
@@ -35,11 +36,12 @@ export default function Login() {
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <View style={styles.card}>
         <Text style={styles.title}>etrack</Text>
-        <Text style={styles.subtitle}>Supervisor sign in</Text>
+        <Text style={styles.subtitle}>Sign in to continue</Text>
 
         <TextInput
           style={styles.input}
           placeholder="Email"
+          placeholderTextColor="#64748b"
           autoCapitalize="none"
           autoComplete="email"
           keyboardType="email-address"
@@ -50,6 +52,7 @@ export default function Login() {
         <TextInput
           style={styles.input}
           placeholder="Password"
+          placeholderTextColor="#64748b"
           secureTextEntry
           value={password}
           onChangeText={setPassword}
@@ -62,6 +65,15 @@ export default function Login() {
           disabled={busy}>
           {busy ? <ActivityIndicator color="#fff" /> : <Text style={styles.buttonText}>Sign in</Text>}
         </Pressable>
+
+        <View style={styles.signupRow}>
+          <Text style={styles.signupHint}>Don&apos;t have an account?</Text>
+          <Link href={'/(auth)/signup' as never} asChild>
+            <Pressable disabled={busy}>
+              <Text style={styles.signupLink}>Sign up</Text>
+            </Pressable>
+          </Link>
+        </View>
       </View>
     </KeyboardAvoidingView>
   );
@@ -89,4 +101,7 @@ const styles = StyleSheet.create({
   },
   buttonDisabled: { opacity: 0.6 },
   buttonText: { color: '#fff', fontSize: 16, fontWeight: '600' },
+  signupRow: { flexDirection: 'row', justifyContent: 'center', gap: 6, marginTop: 16 },
+  signupHint: { color: '#94a3b8', fontSize: 14 },
+  signupLink: { color: '#60a5fa', fontSize: 14, fontWeight: '600' },
 });

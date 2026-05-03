@@ -6,7 +6,7 @@ import { discardAllPending, discardPending, flush, listPending } from '@/lib/que
 import type { PendingScan } from '@/lib/types';
 
 export default function Pending() {
-  const { session } = useAuth();
+  const { profile } = useAuth();
   const [items, setItems] = useState<PendingScan[]>([]);
   const [busy, setBusy] = useState(false);
 
@@ -21,10 +21,10 @@ export default function Pending() {
   );
 
   const onSync = async () => {
-    if (!session) return;
+    if (!profile) return;
     setBusy(true);
     try {
-      const synced = await flush(session.user.id);
+      const synced = await flush(profile.id);
       await refresh();
       Alert.alert('Sync', `${synced} scan(s) uploaded.`);
     } finally {
