@@ -5,6 +5,11 @@ Customers book events; each event has 1..N admin-defined phases (typically
 Ingress / Event Proper / Egress); employees clock in/out per phase; payroll is
 worked phases × pay rate. Roles: `admin`, `supervisor`, `employee`, `pending`.
 
+This repository is an educational reference project for an offline-capable
+payroll workflow built with Expo, Next.js, and Supabase. It is not a production
+payroll system; review security, data-retention, and local employment
+requirements before adapting it for real use.
+
 ## Layout
 
 ```
@@ -17,8 +22,6 @@ etrack/
     └── seed_dev.sql   30-row dev seed across every table except scans
 ```
 
-For deeper context (architecture, conventions, command reference), see [CLAUDE.md](CLAUDE.md).
-
 ## Quick start
 
 ### 1. Supabase project
@@ -28,7 +31,11 @@ For deeper context (architecture, conventions, command reference), see [CLAUDE.m
    `0001_initial.sql` → `0002_rls.sql` → `0003_photo_verification.sql`
    → `0004_employee_fields.sql` → `0005_event_workflow.sql`
    → `0006_workforce_needed.sql` → `0007_badges_table.sql`
-   → `0008_user_profile_auth_link.sql`.
+   → `0008_user_profile_auth_link.sql` → `0009_self_signup_policy.sql`
+   → `0010_profile_id_translation.sql` → `0011_employees_self_read.sql`
+   → `0012_admin_scans_bypass.sql` → `0013_scan_photos_authuid_path.sql`
+   → `0014_drop_message_attachments_policies.sql`
+   → `0015_pending_users_helper.sql`.
    They're idempotent (`if not exists` guards) and create the storage buckets
    along the way.
 3. Create at least one admin auth user (Authentication → Users → Add user,
@@ -54,6 +61,9 @@ npm install
 npm run dev
 ```
 
+Use a project-specific Supabase URL and anon key. Never commit a `.env.local`
+file or a Supabase service-role key.
+
 Open http://localhost:3000 and sign in with the admin user. Pages:
 
 - `/dashboard` — today's scans, active employees, mock-flag count, upcoming events
@@ -63,6 +73,9 @@ Open http://localhost:3000 and sign in with the admin user. Pages:
 - `/rates` — preset hourly rates used by the employee form
 - `/badges` — pick employees → export ZIP of QR PNGs + CSV for the print vendor
 - `/scans` — recent activity, photo viewer, filters
+- `/cash-advances` — record and manage employee cash advances
+- `/pending` — review self-signup requests
+- `/violations` — record and review employee violations
 
 ### 3. Mobile app
 
@@ -75,8 +88,7 @@ npx expo start --tunnel   # tunnel is the reliable default for testing on a phon
 ```
 
 Camera + GPS need a real device. SDK 54 typically requires a development
-build via EAS (`eas build --profile development --platform android`) — see
-[CLAUDE.md](CLAUDE.md) for the full mobile flow.
+build via EAS (`eas build --profile development --platform android`).
 
 ### 4. Test scan flow
 
