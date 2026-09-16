@@ -1,14 +1,50 @@
-# etrack
+<h1 align="center">Etrack</h1>
 
-Event-based payroll workflow for an event video / lights / sounds business.
-Customers book events; each event has 1..N admin-defined phases (typically
-Ingress / Event Proper / Egress); employees clock in/out per phase; payroll is
-worked phases × pay rate. Roles: `admin`, `supervisor`, `employee`, `pending`.
+<p align="center"><strong>Event payroll and workforce workflows.</strong></p>
 
-This repository is an educational reference project for an offline-capable
-payroll workflow built with Expo, Next.js, and Supabase. It is not a production
-payroll system; review security, data-retention, and local employment
-requirements before adapting it for real use.
+<p align="center">
+   An admin web app and offline-capable mobile app for planning event phases, managing employees, and recording verified attendance.
+</p>
+
+<p align="center">
+   <img src="https://img.shields.io/badge/Next.js-16-000000?logo=nextdotjs&logoColor=white" alt="Next.js 16" />
+   <img src="https://img.shields.io/badge/Expo-54-000020?logo=expo&logoColor=white" alt="Expo 54" />
+   <img src="https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=black" alt="React 19" />
+   <img src="https://img.shields.io/badge/TypeScript-5-3178C6?logo=typescript&logoColor=white" alt="TypeScript 5" />
+   <img src="https://img.shields.io/badge/Supabase-Postgres-3ECF8E?logo=supabase&logoColor=white" alt="Supabase and Postgres" />
+</p>
+
+---
+
+## Overview
+
+Etrack manages event-based payroll for video, lighting, and sound crews.
+Customers book events with one or more admin-defined phases, such as Ingress,
+Event Proper, and Egress. Employees clock in and out for each phase, and
+payroll is calculated from worked phases and the assigned pay rate.
+
+The system supports `admin`, `supervisor`, `employee`, and `pending` roles.
+The admin web app manages events, workforce records, rates, badges, scans, and
+back-office workflows. The mobile app lets supervisors and employees work from
+a phone, including offline scan queuing and later synchronization.
+
+## Tech Stack
+
+| Area | Technology |
+| --- | --- |
+| Admin application | Next.js 16, React 19, React DOM 19, TypeScript 5 |
+| Admin styling | Tailwind CSS 4, PostCSS |
+| Mobile application | Expo SDK 54, React Native 0.81, React 19, TypeScript 5.9 |
+| Mobile navigation | Expo Router 6, React Navigation 7 |
+| Backend | Supabase, Postgres, Supabase Auth, Supabase Storage, Row Level Security |
+| Supabase clients | `@supabase/supabase-js` 2, `@supabase/ssr` 0.10 |
+| Mobile capabilities | Expo Camera, Location, Secure Store, File System, Haptics, Image, Dev Client |
+| Offline sync | AsyncStorage, NetInfo, UUID, React Native URL polyfill |
+| Admin document tools | QRCode, JSZip |
+| Mobile UI runtime | React Native Gesture Handler, Reanimated, Worklets, Safe Area Context, Screens |
+| Code quality | ESLint 9, Next.js ESLint config, Expo ESLint config |
+
+## Layout
 
 ## Layout
 
