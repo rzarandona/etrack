@@ -35,4 +35,5 @@ android/app/build/
 supabase/.branches/
 supabase/.temp/
 
-
+# Claude Code local user prefs
+.claude/settings.local.json

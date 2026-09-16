@@ -17,7 +17,7 @@ etrack/
     └── seed_dev.sql   30-row dev seed across every table except scans
 ```
 
-For deeper context (architecture, conventions, command reference)
+For deeper context (architecture, conventions, command reference), see [CLAUDE.md](CLAUDE.md).
 
 ## Quick start
 
@@ -75,7 +75,8 @@ npx expo start --tunnel   # tunnel is the reliable default for testing on a phon
 ```
 
 Camera + GPS need a real device. SDK 54 typically requires a development
-build via EAS (`eas build --profile development --platform android`) 
+build via EAS (`eas build --profile development --platform android`) — see
+[CLAUDE.md](CLAUDE.md) for the full mobile flow.
 
 ### 4. Test scan flow
 
