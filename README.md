@@ -30,6 +30,8 @@ a phone, including offline scan queuing and later synchronization.
 
 ## Tech Stack
 
+### Platform
+
 | Area | Technology |
 | --- | --- |
 | Admin application | Next.js 16, React 19, React DOM 19, TypeScript 5 |
@@ -37,14 +39,83 @@ a phone, including offline scan queuing and later synchronization.
 | Mobile application | Expo SDK 54, React Native 0.81, React 19, TypeScript 5.9 |
 | Mobile navigation | Expo Router 6, React Navigation 7 |
 | Backend | Supabase, Postgres, Supabase Auth, Supabase Storage, Row Level Security |
-| Supabase clients | `@supabase/supabase-js` 2, `@supabase/ssr` 0.10 |
-| Mobile capabilities | Expo Camera, Location, Secure Store, File System, Haptics, Image, Dev Client |
-| Offline sync | AsyncStorage, NetInfo, UUID, React Native URL polyfill |
-| Admin document tools | QRCode, JSZip |
-| Mobile UI runtime | React Native Gesture Handler, Reanimated, Worklets, Safe Area Context, Screens |
-| Code quality | ESLint 9, Next.js ESLint config, Expo ESLint config |
 
-## Layout
+### Admin Dependencies
+
+| Package | Version | Purpose |
+| --- | --- | --- |
+| `@supabase/ssr` | 0.10.2 | Supabase session handling for server-rendered Next.js routes. |
+| `@supabase/supabase-js` | 2.104.1 | Supabase database, authentication, and storage client. |
+| `jszip` | 3.10.1 | QR badge ZIP exports. |
+| `next` | 16.2.4 | Admin web application framework. |
+| `qrcode` | 1.5.4 | Employee QR badge generation. |
+| `react` | 19.2.4 | Admin interface runtime. |
+| `react-dom` | 19.2.4 | React DOM renderer. |
+
+### Admin Development Dependencies
+
+| Package | Version | Purpose |
+| --- | --- | --- |
+| `@tailwindcss/postcss` | 4 | Tailwind CSS PostCSS integration. |
+| `@types/node` | 20 | Node.js type definitions. |
+| `@types/qrcode` | 1.5.6 | QRCode type definitions. |
+| `@types/react` | 19 | React type definitions. |
+| `@types/react-dom` | 19 | React DOM type definitions. |
+| `eslint` | 9 | JavaScript and TypeScript linting. |
+| `eslint-config-next` | 16.2.4 | Next.js linting rules. |
+| `tailwindcss` | 4 | Utility-first CSS framework. |
+| `typescript` | 5 | Type checking and compilation. |
+
+### Mobile Dependencies
+
+| Package | Version | Purpose |
+| --- | --- | --- |
+| `@expo/vector-icons` | 15.0.3 | Icon set for the mobile UI. |
+| `@react-native-async-storage/async-storage` | 2.2.0 | Persistent local storage. |
+| `@react-native-community/netinfo` | 11.4.1 | Network state for offline synchronization. |
+| `@react-navigation/bottom-tabs` | 7.4.0 | Bottom-tab navigation. |
+| `@react-navigation/elements` | 2.6.3 | Shared React Navigation components. |
+| `@react-navigation/native` | 7.1.8 | Mobile navigation foundation. |
+| `@supabase/supabase-js` | 2.104.1 | Supabase database, authentication, and storage client. |
+| `expo` | 54.0.33 | Expo application platform. |
+| `expo-camera` | 17.0.10 | QR badge scanning and photo capture. |
+| `expo-constants` | 18.0.13 | Application configuration access. |
+| `expo-dev-client` | 6.0.20 | Custom development builds. |
+| `expo-file-system` | 19.0.21 | Device file access. |
+| `expo-font` | 14.0.11 | Font loading. |
+| `expo-haptics` | 15.0.8 | Tactile feedback. |
+| `expo-image` | 3.0.11 | Optimized image rendering. |
+| `expo-linking` | 8.0.11 | Deep-link handling. |
+| `expo-location` | 19.0.8 | Scan-location capture. |
+| `expo-router` | 6.0.23 | File-based routing. |
+| `expo-secure-store` | 15.0.8 | Secure local credential storage. |
+| `expo-splash-screen` | 31.0.13 | Native splash-screen control. |
+| `expo-status-bar` | 3.0.9 | Status-bar configuration. |
+| `expo-symbols` | 1.0.8 | SF Symbols integration. |
+| `expo-system-ui` | 6.0.9 | Android system UI configuration. |
+| `expo-web-browser` | 15.0.10 | In-app web browser support. |
+| `react` | 19.1.0 | Mobile interface runtime. |
+| `react-dom` | 19.1.0 | Web renderer for Expo web. |
+| `react-native` | 0.81.5 | Native mobile UI runtime. |
+| `react-native-gesture-handler` | 2.28.0 | Native gesture handling. |
+| `react-native-get-random-values` | 1.11.0 | Cryptographic random-value polyfill. |
+| `react-native-reanimated` | 4.1.1 | Native-driven animations. |
+| `react-native-safe-area-context` | 5.6.0 | Safe-area insets. |
+| `react-native-screens` | 4.16.0 | Native navigation screens. |
+| `react-native-url-polyfill` | 3.0.0 | URL API polyfill. |
+| `react-native-web` | 0.21.0 | React Native renderer for web. |
+| `react-native-worklets` | 0.5.1 | Worklet runtime for animations. |
+| `uuid` | 14.0.0 | Offline queue identifiers. |
+
+### Mobile Development Dependencies
+
+| Package | Version | Purpose |
+| --- | --- | --- |
+| `@expo/ngrok` | 4.1.3 | Expo tunnel support. |
+| `@types/react` | 19.1.0 | React type definitions. |
+| `eslint` | 9.25.0 | JavaScript and TypeScript linting. |
+| `eslint-config-expo` | 10.0.0 | Expo linting rules. |
+| `typescript` | 5.9.2 | Type checking and compilation. |
 
 ## Layout
 
